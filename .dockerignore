@@ -1,0 +1,17 @@
+node_modules
+.next
+dist
+.env
+*.sqlite
+logs
+*.log
+.git
+.gitignore
+买的数据
+小红书爬取数据
+新爬取数据
+*.pdf
+*.docx
+*.pptx
+*.py
+表格_*.csv
