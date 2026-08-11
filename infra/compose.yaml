@@ -21,7 +21,6 @@ services:
       DATABASE_PATH: /app/backend/data/course-demo.sqlite
     volumes:
       - course-data:/app/backend/data
-      - ../scripts:/app/scripts:ro
     healthcheck:
       test:
         [

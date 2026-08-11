@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/backend ./backend
+# 数据文件内置在镜像中
+COPY backend/data ./backend/data
 EXPOSE 7001
 CMD ["npm", "run", "start", "--workspace", "backend"]
 

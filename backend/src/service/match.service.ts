@@ -126,7 +126,7 @@ export class MatchService {
       .get() as { total: number };
     if (teamCount.total >= 48) return;
 
-    const dataDir = resolve(process.cwd(), "..", "scripts");
+    const dataDir = resolve(__dirname, "..", "data");
 
     // ---------- 1. teams (小红书) ----------
     this.importCSV(join(dataDir, "teams_xhs.csv"), 1, (row) => {

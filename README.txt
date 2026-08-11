@@ -19,40 +19,15 @@ https://github.com/tyXiang-520/worldcup-2026-hub
 ---
 三、Docker 启动
 ---
-1. 将种子数据 CSV 文件放入 scripts/ 目录（见后文"数据文件说明"）
-2. 在项目根目录执行：
+种子数据已内置在 Docker 镜像中，无需额外挂载。
+在项目根目录执行：
    docker compose -f infra/compose.yaml up -d
-3. 访问 http://localhost:3000
+启动后访问 http://localhost:3000
+
+数据库文件通过 Volume 持久化在 course-data 卷中。
 
 ---
-四、数据文件说明
----
-后端启动时会从 scripts/ 目录读取以下 CSV 初始化数据库：
-
-必需文件：
-  teams_xhs.csv              — 48支球队（含Logo URL）
-  matches_xhs.csv             — 104场比赛（比分+时间+阶段）
-  players_new.csv             — 球员基础信息
-  match_events_new.csv        — 比赛进球事件
-  player_tournament_stats_new.csv — 球员赛事统计
-
-可选文件（有则显示更丰富数据）：
-  lineups_xhs.csv             — 阵容头信息
-  lineup_players_xhs.csv      — 阵容球员明细
-  player_ratings_xhs.csv      — 球员评分
-  final_lineups.csv           — 决赛阵容
-  final_lineup_players.csv    — 决赛阵容球员
-  final_events.csv            — 决赛事件
-  goals_xhs.csv               — 射手榜
-  assists_xhs.csv             — 助攻榜
-  scorers_xhs.csv             — 原始射手/助攻数据
-
-数据库文件自动创建在 backend/data/course-demo.sqlite，通过 Docker Volume 持久化。
-
-数据来源优先级：小红书 > 购买数据 > openfootball
-
----
-五、功能清单
+四、功能清单
 ---
 1. 赛事数据展示
    - 赛程列表（按日期分组 + 按阶段筛选 + 104场比赛含一句话总结）

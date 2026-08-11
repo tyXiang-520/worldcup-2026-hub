@@ -62,7 +62,7 @@ export class StatsService {
   private assistsCache: ScorerData[] | null = null;
 
   private loadCache(file: string): ScorerData[] {
-    const p = resolve(process.cwd(), "..", "scripts", file);
+    const p = resolve(__dirname, "..", "data", file);
     if (!existsSync(p)) return [];
     return readFileSync(p, "utf8").trim().split("\n").slice(1).map((line) => {
       const m = line.match(/^(\d+),"([^"]+)","([^"]+)",(\d+)$/);
@@ -72,7 +72,7 @@ export class StatsService {
   }
 
   private loadAssistCache(file: string): ScorerData[] {
-    const p = resolve(process.cwd(), "..", "scripts", file);
+    const p = resolve(__dirname, "..", "data", file);
     if (!existsSync(p)) return [];
     return readFileSync(p, "utf8").trim().split("\n").slice(1).map((line) => {
       const m = line.match(/^(\d+),"([^"]+)","([^"]+)",(\d+)$/);
