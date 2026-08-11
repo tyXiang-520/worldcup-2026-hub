@@ -35,7 +35,7 @@ export function BracketView() {
 
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex min-w-[900px] items-start gap-2">
+      <div className="flex min-w-[700px] items-start gap-1">
         {rounds.map((round, ri) => (
           <div key={ri} className="flex flex-1 flex-col gap-2">
             {/* 阶段标题 */}
@@ -47,8 +47,8 @@ export function BracketView() {
             <div
               className="flex flex-col gap-2"
               style={{
-                paddingTop: ri === 0 ? 0 : `${Math.pow(2, ri) * 8}px`,
-                paddingBottom: ri === 0 ? 0 : `${Math.pow(2, ri) * 8}px`,
+                paddingTop: ri === 0 ? 0 : `${Math.pow(2, ri) * 4}px`,
+                paddingBottom: ri === 0 ? 0 : `${Math.pow(2, ri) * 4}px`,
               }}
             >
               {round.matches.map((match) => (
@@ -64,7 +64,7 @@ export function BracketView() {
             <h3 className="mb-2 text-center text-[12px] font-bold uppercase tracking-wider text-amber-600">
               决赛
             </h3>
-            <div style={{ paddingTop: "80px", paddingBottom: "80px" }}>
+            <div style={{ paddingTop: "48px", paddingBottom: "48px" }}>
               <BracketMatchCard match={finalMatch} isFinal />
             </div>
           </div>
