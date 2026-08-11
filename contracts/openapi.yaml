@@ -1,14 +1,33 @@
 openapi: 3.1.0
 info:
-  title: Web Development Course API
-  version: 0.1.0
+  title: 世界杯赛事信息与互动预测平台 API
+  version: 0.2.0
+  description: |
+    2026 美加墨世界杯全栈 Web 应用后端接口契约。
+    本模块（赛事展示）全部为只读查询接口，无需登录。
+    预测提交、评论发帖等接口需 JWT 鉴权（后续 Spec 交付）。
+    所有响应携带 X-Request-Id 头用于全链路日志追踪。
 servers:
   - url: http://localhost:7001
+tags:
+  - name: 系统
+    description: 健康检查
+  - name: 课程模块
+    description: 001-course-catalog 课程目录接口
+  - name: 赛事展示
+    description: 001-match-display 赛程、比赛详情、球队、球员查询接口
 paths:
+  # ============================================================
+  # 原有课程接口
+  # ============================================================
   /api/health:
     get:
       operationId: getHealth
       summary: 检查 API 状态
+      tags: [系统]
+      x-spec:
+        file: specs/001-course-catalog.md
+        acceptanceCriteria: [AC-01]
       responses:
         "200":
           description: API 正常
@@ -16,26 +35,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+
   /api/courses:
     get:
       operationId: listCourses
       summary: 获取课程列表
+      tags: [课程模块]
+      x-spec:
+        file: specs/001-course-catalog.md
+        acceptanceCriteria: [AC-02, AC-03]
       responses:
         "200":
           description: 课程列表
           content:
             application/json:
               schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Course"
+                $ref: "#/components/schemas/CourseListResponse"
+
     post:
       operationId: createCourse
       summary: 创建课程
+      tags: [课程模块]
+      x-spec:
+        file: specs/001-course-catalog.md
+        acceptanceCriteria: [AC-04]
       requestBody:
         required: true
         content:
@@ -43,20 +66,210 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateCourse"
       responses:
-        "200":
+        "201":
           description: 创建成功
           content:
             application/json:
               schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    $ref: "#/components/schemas/Course"
+                $ref: "#/components/schemas/CourseResponse"
         "400":
-          description: 请求体不符合课程数据规则
+          $ref: "#/components/responses/BadRequest"
+
+  # ============================================================
+  # 001-match-display：世界杯赛事数据展示
+  # ============================================================
+  /api/matches:
+    get:
+      operationId: listMatches
+      summary: 获取赛程列表，按日期分组，支持按阶段筛选
+      tags: [赛事展示]
+      x-spec:
+        file: specs/001-match-display.md
+        acceptanceCriteria: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-06]
+      parameters:
+        - name: stage
+          in: query
+          required: false
+          description: 按阶段筛选。不传时返回全部赛事
+          schema:
+            type: string
+            pattern: "^group-[1-3]$|^round-of-(32|16)$|^quarter-final$|^semi-final$|^third-place$|^final$"
+          x-enum-desc:
+            group-1: 小组赛第一轮
+            group-2: 小组赛第二轮
+            group-3: 小组赛第三轮
+            round-of-32: 1/16 决赛
+            round-of-16: 1/8 决赛
+            quarter-final: 1/4 决赛
+            semi-final: 半决赛
+            third-place: 三四名决赛
+            final: 决赛
+      responses:
+        "200":
+          description: 赛程列表，按日期分组
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/matches/{matchId}:
+    get:
+      operationId: getMatchDetail
+      summary: 获取单场比赛详情（含事件、阵容、评分）
+      tags: [赛事展示]
+      x-spec:
+        file: specs/001-match-display.md
+        acceptanceCriteria: [AC-07, AC-08, AC-09, AC-10, AC-11]
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 比赛详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchDetailResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/teams:
+    get:
+      operationId: listTeams
+      summary: 获取全部球队列表
+      tags: [赛事展示]
+      x-spec:
+        file: specs/001-match-display.md
+        acceptanceCriteria: [AC-14]
+      responses:
+        "200":
+          description: 球队列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamListResponse"
+
+  /api/teams/{teamId}:
+    get:
+      operationId: getTeamDetail
+      summary: 获取球队详情（本期仅返回基本信息，完整数据由后续 Spec 交付）
+      tags: [赛事展示]
+      x-spec:
+        file: specs/001-match-display.md
+        acceptanceCriteria: [AC-12, AC-14]
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 球队详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDetailResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/players/{playerId}:
+    get:
+      operationId: getPlayerDetail
+      summary: 获取球员详情（本期仅返回基本信息，完整数据由后续 Spec 交付）
+      tags: [赛事展示]
+      x-spec:
+        file: specs/001-match-display.md
+        acceptanceCriteria: [AC-13, AC-14]
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 球员详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerDetailResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
+  # ============================================================
+  # 可复用响应
+  # ============================================================
+  responses:
+    BadRequest:
+      description: 请求参数不合法
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    InternalError:
+      description: 服务端错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+
   schemas:
+    # ============================================================
+    # 通用
+    # ============================================================
+    ApiError:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: 供程序判断的稳定错误码
+              example: VALIDATION_FAILED
+            message:
+              type: string
+              description: 面向用户的错误说明
+              example: 请求参数不合法
+            details:
+              type: array
+              description: 可选的字段级错误详情
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  reason:
+                    type: string
+        requestId:
+          type: string
+          description: 请求追踪 ID，与响应头 X-Request-Id 一致
+
+    # ============================================================
+    # 原有课程 Schema
+    # ============================================================
     Health:
       type: object
       required: [status, service, timestamp]
@@ -68,6 +281,7 @@ components:
         timestamp:
           type: string
           format: date-time
+
     Course:
       type: object
       required: [id, title, description, createdAt]
@@ -81,6 +295,7 @@ components:
         createdAt:
           type: string
           format: date-time
+
     CreateCourse:
       type: object
       additionalProperties: false
@@ -94,3 +309,467 @@ components:
           type: string
           minLength: 2
           maxLength: 500
+
+    CourseListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Course"
+
+    CourseResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Course"
+
+    # ============================================================
+    # 赛事
+    # ============================================================
+    Match:
+      type: object
+      required: [id, date, stage, homeTeam, awayTeam, homeScore, awayScore, status]
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+          description: 比赛日期，ISO 8601 格式
+          example: "2026-06-12"
+        kickoffTime:
+          type: string
+          description: 开球时间，北京时间 HH:mm
+          example: "21:00"
+        stage:
+          type: string
+          description: 比赛阶段标识
+          enum: [group-1, group-2, group-3, round-of-32, round-of-16, quarter-final, semi-final, third-place, final]
+          x-enum-desc:
+            group-1: 小组赛第一轮
+            group-2: 小组赛第二轮
+            group-3: 小组赛第三轮
+            round-of-32: 1/16 决赛
+            round-of-16: 1/8 决赛
+            quarter-final: 1/4 决赛
+            semi-final: 半决赛
+            third-place: 三四名决赛
+            final: 决赛
+        group:
+          type: string
+          description: 小组赛所在小组（A-H），淘汰赛为 null
+          nullable: true
+          example: "A"
+        venue:
+          type: string
+          description: 比赛场地
+          example: "阿兹特克体育场"
+        homeTeam:
+          $ref: "#/components/schemas/TeamBrief"
+        awayTeam:
+          $ref: "#/components/schemas/TeamBrief"
+        homeScore:
+          type: integer
+          description: 主队最终得分
+          nullable: true
+        awayScore:
+          type: integer
+          description: 客队最终得分
+          nullable: true
+        homePenalty:
+          type: integer
+          description: 主队点球大战得分，无点球时为 null
+          nullable: true
+        awayPenalty:
+          type: integer
+          description: 客队点球大战得分，无点球时为 null
+          nullable: true
+        status:
+          type: string
+          enum: [finished, in_progress, not_started]
+          description: |
+            赛事状态。当前所有赛事为 2026 世界杯历史赛果，数据固定为 finished。
+            in_progress 和 not_started 为架构预留，用于未来实时赛事模式。
+          x-enum-desc:
+            finished: 已结束
+            in_progress: 进行中（架构预留）
+            not_started: 未开始（架构预留）
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 一句话简述
+          example: "费兰加时进球 斗牛士加冕"
+
+    TeamBrief:
+      type: object
+      required: [id, name, flagUrl]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 30
+          description: 球队中文名称
+          example: "西班牙"
+        nameEn:
+          type: string
+          description: 球队英文名称
+          example: "Spain"
+        flagUrl:
+          type: string
+          description: 队徽或国旗图片 URL
+
+    MatchListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          description: 按日期分组的赛事列表，每组含日期标题和当天比赛
+          items:
+            type: object
+            required: [date, matches]
+            properties:
+              date:
+                type: string
+                description: 日期分组标题
+                example: "6月12日 星期四"
+              matches:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+
+    # ============================================================
+    # 比赛详情
+    # ============================================================
+    MatchDetail:
+      type: object
+      required: [match, events, lineups, ratings]
+      properties:
+        match:
+          $ref: "#/components/schemas/Match"
+        events:
+          type: array
+          description: 赛场事件时间线，按分钟数升序排列
+          items:
+            $ref: "#/components/schemas/MatchEvent"
+        lineups:
+          type: object
+          required: [home, away]
+          properties:
+            home:
+              $ref: "#/components/schemas/Lineup"
+            away:
+              $ref: "#/components/schemas/Lineup"
+        ratings:
+          type: object
+          required: [home, away]
+          properties:
+            home:
+              type: array
+              items:
+                $ref: "#/components/schemas/PlayerRating"
+            away:
+              type: array
+              items:
+                $ref: "#/components/schemas/PlayerRating"
+
+    MatchDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/MatchDetail"
+
+    MatchEvent:
+      type: object
+      required: [id, minute, type, description]
+      properties:
+        id:
+          type: integer
+        minute:
+          type: string
+          description: 事件发生的分钟数，含补时标记
+          example: "45+2"
+        type:
+          type: string
+          enum: [goal, yellow_card, red_card, substitution, var]
+          description: 事件类型
+          x-enum-desc:
+            goal: 进球
+            yellow_card: 黄牌
+            red_card: 红牌
+            substitution: 换人
+            var: VAR 介入
+        description:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: 事件描述
+          example: "梅西进球（助攻：迪马利亚）"
+        playerId:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: 事件关联球员 ID，无球员事件（如 VAR）时为 null
+        playerName:
+          type: string
+          description: 相关球员姓名（用于直接展示，避免额外查询）
+        teamSide:
+          type: string
+          enum: [home, away]
+          description: 事件关联的主队或客队
+
+    Lineup:
+      type: object
+      required: [formation, starting, substitutes]
+      properties:
+        formation:
+          type: string
+          description: 阵型
+          example: "4-3-3"
+        starting:
+          type: array
+          minItems: 11
+          maxItems: 11
+          description: 首发 11 人
+          items:
+            $ref: "#/components/schemas/LineupPlayer"
+        substitutes:
+          type: array
+          description: 替补名单
+          items:
+            $ref: "#/components/schemas/LineupPlayer"
+
+    LineupPlayer:
+      type: object
+      required: [playerId, number, name]
+      properties:
+        playerId:
+          type: integer
+        number:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: 球衣号码
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: 球员姓名
+        position:
+          type: string
+          description: 场上位置
+          example: "前锋"
+
+    PlayerRating:
+      type: object
+      required: [playerId, number, name, rating]
+      properties:
+        playerId:
+          type: integer
+        number:
+          type: integer
+        name:
+          type: string
+        rating:
+          type: number
+          minimum: 1.0
+          maximum: 10.0
+          description: 球员评分
+
+    # ============================================================
+    # 球队
+    # ============================================================
+    Team:
+      type: object
+      required: [id, name, nameEn, flagUrl, group]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 30
+          description: 中文名称
+          example: "西班牙"
+        nameEn:
+          type: string
+          description: 英文名称
+          example: "Spain"
+        flagUrl:
+          type: string
+        group:
+          type: string
+          description: 所在小组
+          example: "A"
+        fifaRanking:
+          type: integer
+          minimum: 1
+          description: FIFA 世界排名
+        stats:
+          $ref: "#/components/schemas/TeamStats"
+
+    TeamStats:
+      type: object
+      properties:
+        goalsFor:
+          type: integer
+          minimum: 0
+        goalsAgainst:
+          type: integer
+          minimum: 0
+        goalDifference:
+          type: integer
+        matches:
+          type: integer
+          minimum: 0
+        wins:
+          type: integer
+          minimum: 0
+        draws:
+          type: integer
+          minimum: 0
+        losses:
+          type: integer
+          minimum: 0
+
+    TeamListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Team"
+
+    TeamDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [team]
+          properties:
+            team:
+              $ref: "#/components/schemas/Team"
+            players:
+              type: array
+              description: 球队球员列表（本期返回空数组，完整数据由 002 Spec 交付）
+              items:
+                $ref: "#/components/schemas/PlayerBrief"
+            matches:
+              type: array
+              description: 球队本届赛事比赛列表（本期返回空数组，完整数据由 002 Spec 交付）
+              items:
+                $ref: "#/components/schemas/Match"
+
+    # ============================================================
+    # 球员
+    # ============================================================
+    PlayerBrief:
+      type: object
+      required: [id, name, number, position]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        number:
+          type: integer
+          minimum: 1
+          maximum: 99
+        position:
+          type: string
+          enum: [守门员, 后卫, 中场, 前锋]
+          x-enum-desc:
+            守门员: 守门员
+            后卫: 后卫
+            中场: 中场
+            前锋: 前锋
+
+    PlayerDetail:
+      type: object
+      required: [id, name, nameEn, number, position]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: 中文姓名
+          example: "梅西"
+        nameEn:
+          type: string
+          description: 英文姓名
+          example: "Lionel Messi"
+        number:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: 球衣号码
+        position:
+          type: string
+          enum: [守门员, 后卫, 中场, 前锋]
+          description: 场上位置
+        nationality:
+          type: string
+          description: 国籍
+        age:
+          type: integer
+          minimum: 16
+          maximum: 50
+          description: 年龄
+        height:
+          type: integer
+          minimum: 150
+          maximum: 220
+          description: 身高（cm）
+        weight:
+          type: integer
+          minimum: 50
+          maximum: 120
+          description: 体重（kg）
+        marketValue:
+          type: string
+          description: 身价
+          example: "8000万欧元"
+        club:
+          type: string
+          description: 所属俱乐部
+        tournamentStats:
+          type: object
+          description: 本届赛事数据（本期可为 null，完整数据由后续 Spec 交付）
+          properties:
+            appearances:
+              type: integer
+              minimum: 0
+            goals:
+              type: integer
+              minimum: 0
+            assists:
+              type: integer
+              minimum: 0
+            yellowCards:
+              type: integer
+              minimum: 0
+            redCards:
+              type: integer
+              minimum: 0
+            minutesPlayed:
+              type: integer
+              minimum: 0
+
+    PlayerDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/PlayerDetail"
