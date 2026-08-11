@@ -7,12 +7,15 @@ import {
   Post,
   Query,
   Param,
+  Headers,
 } from "@midwayjs/core";
 import { CourseService } from "../service/course.service";
 import { MatchService } from "../service/match.service";
 import { TeamService } from "../service/team.service";
 import { PlayerService } from "../service/player.service";
 import { StatsService } from "../service/stats.service";
+import { LeaderboardService } from "../service/leaderboard.service";
+import { AuthService } from "../service/auth.service";
 import { parseCourseInput } from "../utils/course-input";
 
 @Controller("/api")
@@ -31,6 +34,12 @@ export class ApiController {
 
   @Inject()
   statsService: StatsService;
+
+  @Inject()
+  leaderboardService: LeaderboardService;
+
+  @Inject()
+  authService: AuthService;
 
   // ============================================================
   // 原有课程接口
@@ -145,5 +154,29 @@ export class ApiController {
   async getStandings() {
     const data = this.statsService.getStandings();
     return { data };
+  }
+
+  // ============================================================
+  // 006-leaderboard：排行榜
+  // ============================================================
+  @Get("/leaderboard")
+  async getLeaderboard() {
+    const data = this.leaderboardService.getTop100();
+    return { data };
+  }
+
+  @Get("/leaderboard/me")
+  async getMyRank(@Headers("authorization") auth?: string) {
+    const userId = this.requireAuth(auth);
+    const data = this.leaderboardService.getMyRank(userId);
+    return { data };
+  }
+
+  private requireAuth(auth?: string): number {
+    if (!auth) throw new httpError.UnauthorizedError("请先登录");
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
+    const result = this.authService.verifyToken(token);
+    if (!result) throw new httpError.UnauthorizedError("登录已过期");
+    return result.userId;
   }
 }

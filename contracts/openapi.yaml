@@ -398,6 +398,42 @@ paths:
                 $ref: "#/components/schemas/ApiError"
 
   # ============================================================
+  # 006-leaderboard：排行榜
+  # ============================================================
+  /api/leaderboard:
+    get:
+      operationId: getLeaderboard
+      summary: 获取积分排行榜 Top 100
+      tags: [预测竞猜]
+      security: []
+      x-spec:
+        file: specs/006-leaderboard.md
+        acceptanceCriteria: [AC-01, AC-02]
+      responses:
+        "200":
+          description: 排行榜列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaderboardResponse"
+
+  /api/leaderboard/me:
+    get:
+      operationId: getMyRank
+      summary: 获取当前用户的排名和积分
+      tags: [预测竞猜]
+      x-spec:
+        file: specs/006-leaderboard.md
+        acceptanceCriteria: [AC-03]
+      responses:
+        "200":
+          description: 个人排名
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyRankResponse"
+
+  # ============================================================
   # 005-prediction-replay：预测提交与历史查询
   # ============================================================
   /api/predictions:
@@ -1126,6 +1162,58 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/Post"
+
+    # ============================================================
+    # 排行榜
+    # ============================================================
+    LeaderboardEntry:
+      type: object
+      required: [rank, username, points, predictionCount, correctRate]
+      properties:
+        rank:
+          type: integer
+        username:
+          type: string
+        points:
+          type: integer
+        predictionCount:
+          type: integer
+        correctRate:
+          type: number
+
+    LeaderboardResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+
+    MyRankEntry:
+      type: object
+      required: [rank, points, predictionCount, correctRate, totalUsers, percentile]
+      properties:
+        rank:
+          type: integer
+        points:
+          type: integer
+        predictionCount:
+          type: integer
+        correctRate:
+          type: number
+        totalUsers:
+          type: integer
+        percentile:
+          type: integer
+          description: 超过了百分之多少的用户，0-100
+
+    MyRankResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/MyRankEntry"
 
     UpdatePrivacyInput:
       type: object
