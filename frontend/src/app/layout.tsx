@@ -12,6 +12,9 @@ export const metadata: Metadata = {
 const NAV_ITEMS = [
   { href: "/", label: "首页" },
   { href: "/matches", label: "赛程" },
+  { href: "/predictions", label: "预测" },
+  { href: "/leaderboard", label: "排行" },
+  { href: "/community", label: "社区" },
 ];
 
 export default function RootLayout({
