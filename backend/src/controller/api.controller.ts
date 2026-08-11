@@ -91,7 +91,20 @@ export class ApiController {
     if (!Number.isInteger(id) || id < 1) throw new httpError.BadRequestError("teamId 必须为正整数");
     const team = this.teamService.getById(id);
     if (!team) throw new httpError.NotFoundError("球队不存在");
-    return { data: { team, players: [], matches: [] } };
+    return { data: { team, players: this.getTeamPlayers(id), matches: this.getTeamMatches(id) } };
+  }
+
+  private getTeamPlayers(teamId: number) {
+    try {
+      const db = (this.matchService as any).database;
+      return db.prepare("SELECT id, name, number, position FROM players WHERE team_id=? ORDER BY number").all(teamId);
+    } catch { return []; }
+  }
+
+  private getTeamMatches(teamId: number) {
+    try {
+      return this.matchService.getTeamMatches(teamId);
+    } catch { return []; }
   }
 
   @Get("/players/:playerId")
@@ -107,8 +120,8 @@ export class ApiController {
   // 003-stats
   // ============================================================
   @Get("/stats/bracket") async getBracket() { return { data: this.statsService.getBracket() }; }
-  @Get("/stats/top-scorers") async getTopScorers(@Query("sortBy") s?: string, @Query("order") o?: string) { return { data: this.statsService.getTopScorers(s ?? "goals", o ?? "desc") }; }
-  @Get("/stats/top-assists") async getTopAssists(@Query("sortBy") s?: string, @Query("order") o?: string) { return { data: this.statsService.getTopAssists(s ?? "assists", o ?? "desc") }; }
+  @Get("/stats/top-scorers") async getTopScorers() { return { data: this.statsService.getTopScorers() }; }
+  @Get("/stats/top-assists") async getTopAssists() { return { data: this.statsService.getTopAssists() }; }
   @Get("/stats/standings") async getStandings() { return { data: this.statsService.getStandings() }; }
 
   // ============================================================

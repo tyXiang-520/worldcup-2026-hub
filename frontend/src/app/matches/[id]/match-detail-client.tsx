@@ -129,6 +129,7 @@ export function MatchDetailClient({ initialData, initialError }: Props) {
           events={events}
           homeName={match.homeTeam.name}
           awayName={match.awayTeam.name}
+          stats={data.stats}
         />
       )}
       {activeTab === "lineup" && <LineupTab lineups={lineups} />}
@@ -173,9 +174,11 @@ function MatchHero({ match }: { match: MatchDetail["match"] }) {
         <div className="flex flex-1 flex-col items-center gap-3 text-center">
           <Link
             href={`/teams/${match.homeTeam.id}`}
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-3xl shadow-inner ring-1 ring-white/20 transition hover:bg-white/20"
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 shadow-inner ring-1 ring-white/20 transition hover:bg-white/20 overflow-hidden"
           >
-            🏳️
+            {match.homeTeam.flagUrl ? (
+              <img src={match.homeTeam.flagUrl} alt={match.homeTeam.name} className="h-full w-full object-cover" />
+            ) : "🏳️"}
           </Link>
           <Link
             href={`/teams/${match.homeTeam.id}`}
@@ -211,9 +214,11 @@ function MatchHero({ match }: { match: MatchDetail["match"] }) {
         <div className="flex flex-1 flex-col items-center gap-3 text-center">
           <Link
             href={`/teams/${match.awayTeam.id}`}
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-3xl shadow-inner ring-1 ring-white/20 transition hover:bg-white/20"
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 shadow-inner ring-1 ring-white/20 transition hover:bg-white/20 overflow-hidden"
           >
-            🏳️
+            {match.awayTeam.flagUrl ? (
+              <img src={match.awayTeam.flagUrl} alt={match.awayTeam.name} className="h-full w-full object-cover" />
+            ) : "🏳️"}
           </Link>
           <Link
             href={`/teams/${match.awayTeam.id}`}
@@ -250,51 +255,38 @@ function OverviewTab({
   events,
   homeName,
   awayName,
+  stats,
 }: {
   match: MatchDetail["match"];
   events: MatchDetail["events"];
   homeName: string;
   awayName: string;
+  stats: MatchDetail["stats"];
 }) {
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
       <section aria-labelledby="events-heading">
-        <h3
-          id="events-heading"
-          className="mb-5 text-lg font-bold text-slate-800"
-        >
-          比赛事件
-        </h3>
-        <EventTimeline
-          events={events}
-          homeTeamName={homeName}
-          awayTeamName={awayName}
-        />
+        <h3 id="events-heading" className="mb-5 text-lg font-bold text-slate-800">比赛事件</h3>
+        <EventTimeline events={events} homeTeamName={homeName} awayTeamName={awayName} />
       </section>
-
       <section aria-labelledby="stats-heading">
-        <h3
-          id="stats-heading"
-          className="mb-5 text-lg font-bold text-slate-800"
-        >
-          技术统计
-        </h3>
-        <StatsComparison match={match} />
+        <h3 id="stats-heading" className="mb-5 text-lg font-bold text-slate-800">技术统计</h3>
+        {stats ? <RealStats match={match} stats={stats} /> : <BasicInfo match={match} />}
       </section>
     </div>
   );
 }
 
-function StatsComparison({ match }: { match: MatchDetail["match"] }) {
-  const statsItems = [
-    { label: "控球率", homeVal: "52%", awayVal: "48%", homePct: 52, awayPct: 48 },
-    { label: "射门", homeVal: "14", awayVal: "9", homePct: 61, awayPct: 39 },
-    { label: "射正", homeVal: "6", awayVal: "3", homePct: 67, awayPct: 33 },
-    { label: "角球", homeVal: "7", awayVal: "4", homePct: 64, awayPct: 36 },
-    { label: "犯规", homeVal: "11", awayVal: "14", homePct: 44, awayPct: 56 },
-    { label: "传球成功率", homeVal: "87%", awayVal: "83%", homePct: 51, awayPct: 49 },
+function RealStats({ match, stats }: { match: MatchDetail["match"]; stats: NonNullable<MatchDetail["stats"]> }) {
+  const items = [
+    { label: "控球率", h: stats.possession_home + "%", a: stats.possession_away + "%", hp: stats.possession_home, ap: stats.possession_away },
+    { label: "射门", h: stats.shots_home, a: stats.shots_away, hp: Math.round(stats.shots_home/(stats.shots_home+stats.shots_away||1)*100), ap: Math.round(stats.shots_away/(stats.shots_home+stats.shots_away||1)*100) },
+    { label: "射正", h: stats.shots_on_home, a: stats.shots_on_away, hp: Math.round(stats.shots_on_home/(stats.shots_on_home+stats.shots_on_away||1)*100), ap: Math.round(stats.shots_on_away/(stats.shots_on_home+stats.shots_on_away||1)*100) },
+    { label: "角球", h: stats.corners_home, a: stats.corners_away, hp: Math.round(stats.corners_home/(stats.corners_home+stats.corners_away||1)*100), ap: Math.round(stats.corners_away/(stats.corners_home+stats.corners_away||1)*100) },
+    { label: "越位", h: stats.offsides_home, a: stats.offsides_away, hp: Math.round(stats.offsides_home/(stats.offsides_home+stats.offsides_away||1)*100), ap: Math.round(stats.offsides_away/(stats.offsides_home+stats.offsides_away||1)*100) },
+    { label: "犯规", h: stats.fouls_home, a: stats.fouls_away, hp: Math.round(stats.fouls_home/(stats.fouls_home+stats.fouls_away||1)*100), ap: Math.round(stats.fouls_away/(stats.fouls_home+stats.fouls_away||1)*100) },
+    { label: "传球成功率", h: stats.pass_pct_home + "%", a: stats.pass_pct_away + "%", hp: stats.pass_pct_home, ap: stats.pass_pct_away },
   ];
-
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between text-[13px] font-semibold">
@@ -302,32 +294,35 @@ function StatsComparison({ match }: { match: MatchDetail["match"] }) {
         <span className="text-[11px] text-slate-400">vs</span>
         <span className="text-slate-600">{match.awayTeam.name}</span>
       </div>
-
       <div className="space-y-5">
-        {statsItems.map((item) => (
+        {items.map((item) => (
           <div key={item.label}>
             <div className="mb-1.5 flex items-center justify-between text-[13px]">
-              <span className="font-semibold tabular-nums text-slate-700">
-                {item.homeVal}
-              </span>
+              <span className="font-semibold tabular-nums text-slate-700">{item.h}</span>
               <span className="text-[12px] text-slate-400">{item.label}</span>
-              <span className="font-semibold tabular-nums text-slate-700">
-                {item.awayVal}
-              </span>
+              <span className="font-semibold tabular-nums text-slate-700">{item.a}</span>
             </div>
             <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="rounded-full bg-blue-600 transition-all"
-                style={{ width: `${item.homePct}%` }}
-              />
+              <div className="rounded-full bg-blue-600 transition-all" style={{ width: `${item.hp}%` }} />
               <div className="w-1 shrink-0 bg-white" />
-              <div
-                className="rounded-full bg-rose-500 transition-all"
-                style={{ width: `${item.awayPct}%` }}
-              />
+              <div className="rounded-full bg-rose-500 transition-all" style={{ width: `${item.ap}%` }} />
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function BasicInfo({ match }: { match: MatchDetail["match"] }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h4 className="mb-3 text-sm font-bold text-slate-700">比赛信息</h4>
+      <div className="space-y-2 text-[13px]">
+        <div className="flex justify-between"><span className="text-slate-500">日期</span><span className="font-semibold">{match.date}</span></div>
+        {match.kickoffTime && <div className="flex justify-between"><span className="text-slate-500">开球</span><span className="font-semibold">{match.kickoffTime}</span></div>}
+        {match.venue && <div className="flex justify-between"><span className="text-slate-500">场地</span><span className="font-semibold">{match.venue}</span></div>}
+        <div className="flex justify-between"><span className="text-slate-500">状态</span><span className="font-semibold text-emerald-600">已结束</span></div>
       </div>
     </div>
   );

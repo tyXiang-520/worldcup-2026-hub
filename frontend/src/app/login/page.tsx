@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { Suspense, useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md px-4 py-20 text-center text-sm text-slate-400">加载中…</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") ?? "login"; // "login" | "register"

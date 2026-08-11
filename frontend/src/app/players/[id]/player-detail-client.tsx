@@ -83,15 +83,12 @@ export function PlayerDetailClient({
           <ul className="divide-y divide-slate-100">
             <InfoRow label="位置" value={data.position} />
             {data.nationality && <InfoRow label="国籍" value={data.nationality} />}
-            {data.age && <InfoRow label="年龄" value={`${data.age} 岁`} />}
-            {data.height && <InfoRow label="身高" value={`${data.height} cm`} />}
-            {data.weight && <InfoRow label="体重" value={`${data.weight} kg`} />}
-            {data.marketValue && <InfoRow label="身价" value={data.marketValue} />}
-            {data.club && <InfoRow label="俱乐部" value={data.club} />}
+            {data.age ? <InfoRow label="年龄" value={`${data.age} 岁`} /> : null}
+            {data.height ? <InfoRow label="身高" value={`${data.height} cm`} /> : null}
+            {data.weight ? <InfoRow label="体重" value={`${data.weight} kg`} /> : null}
+            {data.marketValue ? <InfoRow label="身价" value={data.marketValue} /> : null}
+            {data.club ? <InfoRow label="俱乐部" value={data.club} /> : null}
           </ul>
-          {!data.age && !data.club && (
-            <p className="py-6 text-center text-[13px] text-slate-400">基本信息待补充</p>
-          )}
         </section>
 
         {/* 赛事数据 */}

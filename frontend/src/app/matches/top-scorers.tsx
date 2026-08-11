@@ -33,25 +33,6 @@ export function TopScorers() {
 
   return (
     <div>
-      {/* 排序切换 */}
-      <div className="mb-5 flex items-center gap-2">
-        <span className="text-[12px] text-slate-400">排序：</span>
-        {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => setSortBy(opt.value)}
-            className={`rounded-full px-3 py-1 text-[12px] font-semibold transition ${
-              sortBy === opt.value
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* 榜单 */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-left">
           <thead>
@@ -60,8 +41,6 @@ export function TopScorers() {
               <th className="px-2 py-3">球员</th>
               <th className="px-2 py-3">球队</th>
               <th className="px-2 py-3 text-center">进球</th>
-              <th className="px-2 py-3 text-center">助攻</th>
-              <th className="px-2 py-3 text-center">出场</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -85,8 +64,6 @@ export function TopScorers() {
                   </Link>
                 </td>
                 <td className="px-2 py-3 text-center text-[14px] font-bold tabular-nums text-slate-900">{s.goals}</td>
-                <td className="px-2 py-3 text-center text-[14px] tabular-nums text-slate-600">{s.assists}</td>
-                <td className="px-2 py-3 text-center text-[13px] tabular-nums text-slate-400">{s.appearances}</td>
               </tr>
             ))}
           </tbody>

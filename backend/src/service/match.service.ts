@@ -128,43 +128,60 @@ export class MatchService {
 
     const dataDir = resolve(process.cwd(), "..", "scripts");
 
-    // ---------- 1. teams ----------
-    this.importCSV(join(dataDir, "teams_new.csv"), 1, (row) => {
-      this.database.prepare(
-        "INSERT INTO teams (id, name, name_en, group_name, fifa_ranking, flag_url) VALUES (?, ?, ?, ?, ?, ?)",
-      ).run(Number(row[0]), row[1], row[2] ?? "", row[3], row[4] ? Number(row[4]) : null, row[5] ?? "");
+    // ---------- 1. teams (小红书) ----------
+    this.importCSV(join(dataDir, "teams_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT INTO teams (id, name, name_en, group_name, fifa_ranking, flag_url) VALUES (?, ?, ?, ?, ?, ?)").run(Number(row[0]), row[1], row[2] ?? "", row[3], row[4] ? Number(row[4]) : null, row[5] ?? "");
     });
 
     // ---------- 2. players ----------
     this.importCSV(join(dataDir, "players_new.csv"), 1, (row) => {
-      this.database.prepare(
-        `INSERT INTO players (id, team_id, name, name_en, number, position, nationality, age, height, weight, market_value, club)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(Number(row[0]), Number(row[1]), row[2], row[3] ?? "", Number(row[4]), row[5], row[6] ?? null, row[7] ? Number(row[7]) : null, row[8] ? Number(row[8]) : null, row[9] ? Number(row[9]) : null, row[10] ?? null, row[11] ?? null);
+      this.database.prepare("INSERT INTO players (id, team_id, name, name_en, number, position, nationality, age, height, weight, market_value, club) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), row[2], row[3] ?? "", Number(row[4]), row[5], row[6] ?? null, row[7] ? Number(row[7]) : null, row[8] ? Number(row[8]) : null, row[9] ? Number(row[9]) : null, row[10] ?? null, row[11] ?? null);
     });
 
-    // ---------- 3. matches ----------
-    this.importCSV(join(dataDir, "matches_new.csv"), 1, (row) => {
-      this.database.prepare(
-        `INSERT INTO matches (id, date, kickoff_time, stage, group_name, venue,
-           home_team_id, away_team_id, home_score, away_score, home_penalty, away_penalty, status, summary)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'finished', ?)`,
-      ).run(Number(row[0]), row[1], row[2] || null, row[3], row[4] || null, row[5] || null, Number(row[6]), Number(row[7]), row[8] ? Number(row[8]) : null, row[9] ? Number(row[9]) : null, row[10] ? Number(row[10]) : null, row[11] ? Number(row[11]) : null, row[12] || null);
+    // ---------- 3. matches (小红书) ----------
+    this.importCSV(join(dataDir, "matches_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT INTO matches (id, date, kickoff_time, stage, group_name, venue, home_team_id, away_team_id, home_score, away_score, home_penalty, away_penalty, status, summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'finished', ?)").run(Number(row[0]), row[1], row[2] || null, row[3], row[4] || null, row[5] || null, Number(row[6]), Number(row[7]), row[8] ? Number(row[8]) : null, row[9] ? Number(row[9]) : null, row[10] ? Number(row[10]) : null, row[11] ? Number(row[11]) : null, row[12] || null);
     });
 
-    // ---------- 4. match_events ----------
+    // ---------- 4. match_events (openfootball) ----------
     this.importCSV(join(dataDir, "match_events_new.csv"), 1, (row) => {
-      this.database.prepare(
-        `INSERT INTO match_events (id, match_id, minute, type, description, player_id, player_name, team_side)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(Number(row[0]), Number(row[1]), row[2], row[3], row[4], row[5] ? Number(row[5]) : null, row[6] || null, row[7]);
+      this.database.prepare("INSERT INTO match_events (id, match_id, minute, type, description, player_id, player_name, team_side) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), row[2], row[3], row[4], row[5] ? Number(row[5]) : null, row[6] || null, row[7]);
     });
 
-    // ---------- 5. player_tournament_stats ----------
+    // ---------- 5. lineups (小红书) ----------
+    this.importCSV(join(dataDir, "lineups_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT INTO lineups (id, match_id, team_id, side, formation) VALUES (?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), row[3], row[4]);
+    });
+    this.importCSV(join(dataDir, "lineup_players_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT INTO lineup_players (id, lineup_id, player_id, number, name, position, is_starter) VALUES (?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), row[4], row[5] || null, Number(row[6]));
+    });
+    this.importCSV(join(dataDir, "player_ratings_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT INTO player_ratings (id, match_id, player_id, team_side, rating) VALUES (?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), row[3], Number(row[4]));
+    });
+
+    // ---------- 6. player_tournament_stats ----------
     this.importCSV(join(dataDir, "player_tournament_stats_new.csv"), 1, (row) => {
-      this.database.prepare(
-        "INSERT INTO player_tournament_stats (player_id, appearances, goals, assists, yellow_cards, red_cards, minutes_played) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run(Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5]), Number(row[6]));
+      this.database.prepare("INSERT INTO player_tournament_stats (player_id, appearances, goals, assists, yellow_cards, red_cards, minutes_played) VALUES (?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5]), Number(row[6]));
+    });
+
+    // ---------- 7. 决赛阵容 + 季军赛阵容 ----------
+    // 决赛(104) lineups
+    this.importCSV(join(dataDir, "final_lineups.csv"), 1, (row) => {
+      this.database.prepare("INSERT OR REPLACE INTO lineups (id, match_id, team_id, side, formation) VALUES (?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), row[3], row[4]);
+    });
+    this.importCSV(join(dataDir, "final_lineup_players.csv"), 1, (row) => {
+      this.database.prepare("INSERT OR REPLACE INTO lineup_players (id, lineup_id, player_id, number, name, position, is_starter) VALUES (?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), row[4], row[5] || null, Number(row[6]));
+    });
+    // 决赛(104) events
+    this.importCSV(join(dataDir, "final_events.csv"), 1, (row) => {
+      this.database.prepare("INSERT INTO match_events (id, match_id, minute, type, description, player_id, player_name, team_side) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), row[2], row[3], row[4], row[5] ? Number(row[5]) : null, row[6] || null, row[7]);
+    });
+    // 季军赛(103) lineups (小红书爬取)
+    this.importCSV(join(dataDir, "lineups_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT OR REPLACE INTO lineups (id, match_id, team_id, side, formation) VALUES (?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), row[3], row[4]);
+    });
+    this.importCSV(join(dataDir, "lineup_players_xhs.csv"), 1, (row) => {
+      this.database.prepare("INSERT OR REPLACE INTO lineup_players (id, lineup_id, player_id, number, name, position, is_starter) VALUES (?, ?, ?, ?, ?, ?, ?)").run(Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), row[4], row[5] || null, Number(row[6]));
     });
   }
 
@@ -187,8 +204,8 @@ export class MatchService {
   // ============================================================
   list(stage?: string): MatchGroup[] {
     let rows: any[];
-    const sql = `SELECT m.*, ht.name AS home_name, ht.name_en AS home_name_en,
-            at.name AS away_name, at.name_en AS away_name_en
+    const sql = `SELECT m.*, ht.name AS home_name, ht.name_en AS home_name_en, ht.flag_url AS home_flag_url,
+            at.name AS away_name, at.name_en AS away_name_en, at.flag_url AS away_flag_url
      FROM matches m
      JOIN teams ht ON m.home_team_id = ht.id
      JOIN teams at ON m.away_team_id = at.id`;
@@ -205,17 +222,19 @@ export class MatchService {
   // ============================================================
   getById(id: number): MatchDetail | null {
     const row = this.database.prepare(
-      `SELECT m.*, ht.name AS home_name, ht.name_en AS home_name_en,
-              at.name AS away_name, at.name_en AS away_name_en
+      `SELECT m.*, ht.name AS home_name, ht.name_en AS home_name_en, ht.flag_url AS home_flag_url,
+              at.name AS away_name, at.name_en AS away_name_en, at.flag_url AS away_flag_url
        FROM matches m JOIN teams ht ON m.home_team_id = ht.id JOIN teams at ON m.away_team_id = at.id
        WHERE m.id = ?`,
     ).get(id) as any;
     if (!row) return null;
+    const stats = this.database.prepare("SELECT * FROM match_stats WHERE match_id = ?").get(id) as any;
     return {
       match: mapMatch(row),
       events: this.getEvents(id),
       lineups: this.getLineups(id),
       ratings: this.getRatings(id),
+      stats: stats || null,
     };
   }
 
@@ -254,6 +273,16 @@ export class MatchService {
   }
 
   @Destroy() async close() { this.database?.close(); }
+
+  getTeamMatches(teamId: number) {
+    const rows = this.database.prepare(
+      `SELECT m.*, ht.name AS home_name, ht.name_en AS home_name_en, ht.flag_url AS home_flag_url,
+              at.name AS away_name, at.name_en AS away_name_en, at.flag_url AS away_flag_url
+       FROM matches m JOIN teams ht ON m.home_team_id=ht.id JOIN teams at ON m.away_team_id=at.id
+       WHERE m.home_team_id=? OR m.away_team_id=? ORDER BY m.date, m.kickoff_time`,
+    ).all(teamId, teamId) as any[];
+    return rows.map(mapMatch);
+  }
 }
 
 function parseCSVLine(line: string): string[] {
@@ -279,8 +308,8 @@ function mapMatch(row: any): Match {
   return {
     id: row.id, date: row.date, kickoffTime: row.kickoff_time, stage: row.stage,
     group: row.group_name, venue: row.venue,
-    homeTeam: { id: row.home_team_id, name: row.home_name, nameEn: row.home_name_en, flagUrl: row.flag_url },
-    awayTeam: { id: row.away_team_id, name: row.away_name, nameEn: row.away_name_en, flagUrl: row.flag_url },
+    homeTeam: { id: row.home_team_id, name: row.home_name, nameEn: row.home_name_en, flagUrl: row.home_flag_url || "" },
+    awayTeam: { id: row.away_team_id, name: row.away_name, nameEn: row.away_name_en, flagUrl: row.away_flag_url || "" },
     homeScore: row.home_score, awayScore: row.away_score,
     homePenalty: row.home_penalty, awayPenalty: row.away_penalty,
     status: row.status, summary: row.summary,

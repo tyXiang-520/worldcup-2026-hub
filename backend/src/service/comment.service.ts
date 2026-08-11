@@ -140,7 +140,7 @@ export class CommunityService {
   listTeams() {
     const rows = this.database
       .prepare(
-        `SELECT t.id AS teamId, t.name AS teamName,
+        `SELECT t.id AS teamId, t.name AS teamName, t.flag_url AS flagUrl,
                 (SELECT COUNT(*) FROM posts WHERE team_id = t.id) AS memberCount,
                 (SELECT title FROM posts WHERE team_id = t.id ORDER BY created_at DESC LIMIT 1) AS latestPostTitle
          FROM teams t
@@ -148,7 +148,10 @@ export class CommunityService {
       )
       .all() as any[];
     return rows.map((r) => ({
-      ...r,
+      teamId: r.teamId,
+      teamName: r.teamName,
+      flagUrl: r.flagUrl || "",
+      memberCount: r.memberCount,
       latestPostTitle: r.latestPostTitle ?? null,
     }));
   }

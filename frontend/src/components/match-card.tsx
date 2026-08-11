@@ -56,10 +56,13 @@ export function MatchCard({ match }: { match: Match }) {
 function TeamSide({ team, side }: { team: Match["homeTeam"]; side: "home" | "away" }) {
   return (
     <div className={`flex w-[120px] flex-col items-center gap-3 ${side === "away" ? "order-last" : "order-first"}`}>
-      {/* 队徽占位 */}
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-2xl shadow-inner ring-1 ring-slate-200/60">
-        <span className="sr-only">{team.name}</span>
-        <span aria-hidden className="text-xl">🏳️</span>
+      {/* 队徽 */}
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-2xl shadow-inner ring-1 ring-slate-200/60 overflow-hidden">
+        {team.flagUrl ? (
+          <img src={team.flagUrl} alt={team.name} className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-xl">🏳️</span>
+        )}
       </div>
       <div className="text-center">
         <p className="text-sm font-semibold leading-tight text-slate-800">

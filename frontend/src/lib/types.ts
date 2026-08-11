@@ -64,6 +64,24 @@ export type MatchDetail = {
   events: MatchEvent[];
   lineups: { home: Lineup; away: Lineup };
   ratings: { home: PlayerRating[]; away: PlayerRating[] };
+  stats: MatchStats | null;
+};
+
+export type MatchStats = {
+  possession_home: number;
+  possession_away: number;
+  shots_home: number;
+  shots_away: number;
+  shots_on_home: number;
+  shots_on_away: number;
+  corners_home: number;
+  corners_away: number;
+  fouls_home: number;
+  fouls_away: number;
+  pass_pct_home: number;
+  pass_pct_away: number;
+  offsides_home: number;
+  offsides_away: number;
 };
 
 export type MatchListResponse = { data: MatchGroup[] };

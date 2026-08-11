@@ -15,6 +15,7 @@ const EVENT_ICONS: Record<string, string> = {
   red_card: "🟥",
   substitution: "🔄",
   var: "📺",
+  penalty_missed: "❌",
 };
 
 export function EventTimeline({
