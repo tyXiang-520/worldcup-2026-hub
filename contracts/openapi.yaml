@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: 世界杯赛事信息与互动预测平台 API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     2026 美加墨世界杯全栈 Web 应用后端接口契约。
-    赛事展示、球队球员查询接口无需登录。
-    预测提交、评论发帖等接口需 Bearer Token 鉴权。
+    赛事展示、球队球员查询无需登录。
+    预测提交、评论发帖、社区讨论需 Bearer Token 鉴权。
     所有响应携带 X-Request-Id 头用于全链路日志追踪。
 servers:
   - url: http://localhost:7001
@@ -13,15 +13,17 @@ tags:
   - name: 系统
     description: 健康检查
   - name: 课程模块
-    description: 001-course-catalog 课程目录接口
+    description: 001-course-catalog 课程目录
   - name: 赛事展示
-    description: 001-match-display 赛程、比赛详情、球队、球员查询接口
+    description: 001-match-display 赛程/比赛/球队/球员
   - name: 数据统计
-    description: 003-stats-bracket 晋级图、射手榜、助攻榜、积分榜接口
+    description: 003-stats-bracket 晋级图/射手榜/助攻榜/积分榜
   - name: 预测竞猜
-    description: 005-prediction-replay 预测提交与历史查询接口
+    description: 005-prediction-replay 预测提交与历史
+  - name: 社区讨论
+    description: 007-community 评论/圈子/帖子
   - name: 用户认证
-    description: 004-user-auth 注册、登录、个人信息接口
+    description: 004-user-auth 注册/登录/个人信息
 security:
   - bearerAuth: []
 paths:
@@ -457,6 +459,129 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  # ============================================================
+  # 007-community：赛事评论区与球队圈子
+  # ============================================================
+  /api/comments:
+    get:
+      operationId: listComments
+      summary: 获取某场比赛的评论列表
+      tags: [社区讨论]
+      security: []
+      x-spec:
+        file: specs/007-community.md
+        acceptanceCriteria: [AC-03]
+      parameters:
+        - name: matchId
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [latest, hot]
+            default: latest
+      responses:
+        "200":
+          description: 评论列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentListResponse"
+    post:
+      operationId: createComment
+      summary: 发表评论
+      tags: [社区讨论]
+      x-spec:
+        file: specs/007-community.md
+        acceptanceCriteria: [AC-01, AC-04]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentInput"
+      responses:
+        "201":
+          description: 评论成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/community:
+    get:
+      operationId: listCommunityTeams
+      summary: 获取球队圈子列表
+      tags: [社区讨论]
+      security: []
+      x-spec:
+        file: specs/007-community.md
+        acceptanceCriteria: [AC-05]
+      responses:
+        "200":
+          description: 圈子列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityListResponse"
+
+  /api/community/{teamId}/posts:
+    get:
+      operationId: listCommunityPosts
+      summary: 获取球队圈子帖文列表
+      tags: [社区讨论]
+      security: []
+      x-spec:
+        file: specs/007-community.md
+        acceptanceCriteria: [AC-06]
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 帖文列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostListResponse"
+    post:
+      operationId: createPost
+      summary: 在圈子发帖
+      tags: [社区讨论]
+      x-spec:
+        file: specs/007-community.md
+        acceptanceCriteria: [AC-06]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostInput"
+      responses:
+        "201":
+          description: 发帖成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/auth/me:
     get:
       operationId: getProfile
@@ -866,6 +991,141 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PredictionResult"
+
+    # ============================================================
+    # 社区讨论
+    # ============================================================
+    CreateCommentInput:
+      type: object
+      additionalProperties: false
+      required: [matchId, content]
+      properties:
+        matchId:
+          type: integer
+          minimum: 1
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+        parentId:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: 回复的父评论 ID，不传则为顶级评论
+
+    Comment:
+      type: object
+      required: [id, matchId, content, username, createdAt, likes, isPredictionCorrect]
+      properties:
+        id:
+          type: integer
+        matchId:
+          type: integer
+        content:
+          type: string
+        username:
+          type: string
+        likes:
+          type: integer
+        isPredictionCorrect:
+          type: boolean
+          description: 是否带预测正确标签
+        createdAt:
+          type: string
+          format: date-time
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+
+    CommentListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+
+    CommentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Comment"
+
+    CommunityTeam:
+      type: object
+      required: [teamId, teamName, memberCount, latestPostTitle]
+      properties:
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        memberCount:
+          type: integer
+        latestPostTitle:
+          type: string
+          nullable: true
+
+    CommunityListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityTeam"
+
+    CreatePostInput:
+      type: object
+      additionalProperties: false
+      required: [title, content]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 80
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    Post:
+      type: object
+      required: [id, teamId, title, content, username, createdAt, likes]
+      properties:
+        id:
+          type: integer
+        teamId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        username:
+          type: string
+        likes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    PostListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+
+    PostResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Post"
 
     UpdatePrivacyInput:
       type: object

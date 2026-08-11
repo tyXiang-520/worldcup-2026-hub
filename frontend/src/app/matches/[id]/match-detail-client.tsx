@@ -8,6 +8,7 @@ import { STAGE_LABELS } from "@/lib/types";
 import { fetchMatchDetail } from "@/lib/api";
 import { EventTimeline } from "@/components/event-timeline";
 import { PredictionForm } from "@/components/prediction-form";
+import { MatchComments } from "@/components/match-comments";
 
 type Props = {
   matchId: number;
@@ -132,7 +133,7 @@ export function MatchDetailClient({ initialData, initialError }: Props) {
       )}
       {activeTab === "lineup" && <LineupTab lineups={lineups} />}
       {activeTab === "ratings" && <RatingsTab ratings={ratings} />}
-      {activeTab === "discussion" && <DiscussionTab />}
+      {activeTab === "discussion" && <MatchComments matchId={match.id} />}
 
       {/* 预测入口 */}
       <div className="mt-8">
