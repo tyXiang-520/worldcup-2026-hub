@@ -8,4 +8,5 @@ export default {
   courseDatabase: {
     path: process.env.DATABASE_PATH ?? "./data/course-demo.sqlite",
   },
+  jwtSecret: process.env.JWT_SECRET ?? "worldcup-dev-secret",
 } as MidwayConfig;

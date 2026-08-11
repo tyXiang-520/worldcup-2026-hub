@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: 世界杯赛事信息与互动预测平台 API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     2026 美加墨世界杯全栈 Web 应用后端接口契约。
-    本模块（赛事展示）全部为只读查询接口，无需登录。
-    预测提交、评论发帖等接口需 JWT 鉴权（后续 Spec 交付）。
+    赛事展示、球队球员查询接口无需登录。
+    预测提交、评论发帖等接口需 Bearer Token 鉴权。
     所有响应携带 X-Request-Id 头用于全链路日志追踪。
 servers:
   - url: http://localhost:7001
@@ -16,7 +16,14 @@ tags:
     description: 001-course-catalog 课程目录接口
   - name: 赛事展示
     description: 001-match-display 赛程、比赛详情、球队、球员查询接口
+  - name: 用户认证
+    description: 004-user-auth 注册、登录、个人信息接口
+security:
+  - bearerAuth: []
 paths:
+  # ============================================================
+  # 公开接口
+  # ============================================================
   # ============================================================
   # 原有课程接口
   # ============================================================
@@ -25,6 +32,7 @@ paths:
       operationId: getHealth
       summary: 检查 API 状态
       tags: [系统]
+      security: []
       x-spec:
         file: specs/001-course-catalog.md
         acceptanceCriteria: [AC-01]
@@ -41,6 +49,7 @@ paths:
       operationId: listCourses
       summary: 获取课程列表
       tags: [课程模块]
+      security: []
       x-spec:
         file: specs/001-course-catalog.md
         acceptanceCriteria: [AC-02, AC-03]
@@ -83,6 +92,7 @@ paths:
       operationId: listMatches
       summary: 获取赛程列表，按日期分组，支持按阶段筛选
       tags: [赛事展示]
+      security: []
       x-spec:
         file: specs/001-match-display.md
         acceptanceCriteria: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-06]
@@ -121,6 +131,7 @@ paths:
       operationId: getMatchDetail
       summary: 获取单场比赛详情（含事件、阵容、评分）
       tags: [赛事展示]
+      security: []
       x-spec:
         file: specs/001-match-display.md
         acceptanceCriteria: [AC-07, AC-08, AC-09, AC-10, AC-11]
@@ -148,6 +159,7 @@ paths:
       operationId: listTeams
       summary: 获取全部球队列表
       tags: [赛事展示]
+      security: []
       x-spec:
         file: specs/001-match-display.md
         acceptanceCriteria: [AC-14]
@@ -164,6 +176,7 @@ paths:
       operationId: getTeamDetail
       summary: 获取球队详情（本期仅返回基本信息，完整数据由后续 Spec 交付）
       tags: [赛事展示]
+      security: []
       x-spec:
         file: specs/001-match-display.md
         acceptanceCriteria: [AC-12, AC-14]
@@ -189,6 +202,7 @@ paths:
       operationId: getPlayerDetail
       summary: 获取球员详情（本期仅返回基本信息，完整数据由后续 Spec 交付）
       tags: [赛事展示]
+      security: []
       x-spec:
         file: specs/001-match-display.md
         acceptanceCriteria: [AC-13, AC-14]
@@ -209,7 +223,136 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ============================================================
+  # 004-user-auth：用户注册与登录
+  # ============================================================
+  /api/auth/register:
+    post:
+      operationId: register
+      summary: 用户注册
+      tags: [用户认证]
+      security: []
+      x-spec:
+        file: specs/004-user-auth.md
+        acceptanceCriteria: [AC-01, AC-02, AC-03, AC-04]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: 输入格式不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: 用户名已被占用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /api/auth/login:
+    post:
+      operationId: login
+      summary: 用户登录
+      tags: [用户认证]
+      security: []
+      x-spec:
+        file: specs/004-user-auth.md
+        acceptanceCriteria: [AC-05, AC-06]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /api/auth/me:
+    get:
+      operationId: getProfile
+      summary: 获取当前登录用户信息
+      tags: [用户认证]
+      x-spec:
+        file: specs/004-user-auth.md
+        acceptanceCriteria: [AC-07, AC-08]
+      responses:
+        "200":
+          description: 用户信息
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: 未认证或令牌无效
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updatePrivacy
+      summary: 更新隐私设置
+      tags: [用户认证]
+      x-spec:
+        file: specs/004-user-auth.md
+        acceptanceCriteria: [AC-07]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePrivacyInput"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: 未认证或令牌无效
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 components:
+  # ============================================================
+  # 安全方案
+  # ============================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        登录成功后获取的令牌。所有需要用户身份的接口必须携带此头。
+        格式：Authorization: Bearer {token}
+        受保护接口缺失令牌或令牌无效时返回 401。
+        公开接口（赛事数据、注册、登录）不需要此头，已显式声明 security: []。
+
   # ============================================================
   # 可复用响应
   # ============================================================
@@ -266,6 +409,88 @@ components:
         requestId:
           type: string
           description: 请求追踪 ID，与响应头 X-Request-Id 一致
+
+    # ============================================================
+    # 用户认证
+    # ============================================================
+    RegisterInput:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 16
+          pattern: "^[a-zA-Z0-9_]+$"
+          description: 用户名，仅允许字母数字下划线，注册时去首尾空格
+        password:
+          type: string
+          minLength: 6
+          maxLength: 64
+          description: 密码，最少 6 字符
+
+    LoginInput:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: 用户名
+        password:
+          type: string
+          description: 密码
+
+    UserProfile:
+      type: object
+      required: [id, username, createdAt, allowLeaderboard, allowPredictionView]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        allowLeaderboard:
+          type: boolean
+          description: 是否允许出现在公开排行榜
+        allowPredictionView:
+          type: boolean
+          description: 是否允许他人查看自己的预测记录
+
+    AuthResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [token, user]
+          properties:
+            token:
+              type: string
+              description: Bearer 令牌
+            user:
+              $ref: "#/components/schemas/UserProfile"
+
+    UserResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/UserProfile"
+
+    UpdatePrivacyInput:
+      type: object
+      additionalProperties: false
+      properties:
+        allowLeaderboard:
+          type: boolean
+          description: 是否允许出现在公开排行榜
+        allowPredictionView:
+          type: boolean
+          description: 是否允许他人查看预测记录
 
     # ============================================================
     # 原有课程 Schema
