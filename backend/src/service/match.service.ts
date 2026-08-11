@@ -1,6 +1,6 @@
 import { Config, Destroy, Init, Provide } from "@midwayjs/core";
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, existsSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type {
   Lineup,
@@ -11,6 +11,7 @@ import type {
   MatchGroup,
   PlayerRating,
   TeamBrief,
+  Team,
 } from "../interface";
 
 @Provide()
@@ -26,12 +27,11 @@ export class MatchService {
     mkdirSync(dirname(absolutePath), { recursive: true });
     this.database = new DatabaseSync(absolutePath);
     this.createTables();
-    this.seedTeams();
-    this.seedMatches();
+    this.seedFromCSV();
   }
 
   /* ================================================================
-   * 建表
+   * 建表（全部表结构）
    * ================================================================ */
   private createTables() {
     this.database.exec(`
@@ -126,241 +126,132 @@ export class MatchService {
   }
 
   /* ================================================================
-   * 种子数据 — 48 支球队
+   * 从 CSV 导入种子数据
    * ================================================================ */
-  private seedTeams() {
-    const row = this.database
+  private seedFromCSV() {
+    // 检查是否已导入
+    const teamCount = this.database
       .prepare("SELECT COUNT(*) AS total FROM teams")
       .get() as { total: number };
-    if (row.total > 0) return;
+    if (teamCount.total >= 48) return;
 
-    const teams = [
-      // A组
-      ["墨西哥", "Mexico", "A", 17],
-      ["加拿大", "Canada", "A", 31],
-      ["荷兰", "Netherlands", "A", 7],
-      ["喀麦隆", "Cameroon", "A", 44],
-      // B组
-      ["阿根廷", "Argentina", "B", 1],
-      ["塞内加尔", "Senegal", "B", 20],
-      ["波兰", "Poland", "B", 28],
-      ["新西兰", "New Zealand", "B", 93],
-      // C组
-      ["法国", "France", "C", 2],
-      ["埃及", "Egypt", "C", 33],
-      ["秘鲁", "Peru", "C", 26],
-      ["阿联酋", "UAE", "C", 69],
-      // D组
-      ["英格兰", "England", "D", 4],
-      ["日本", "Japan", "D", 15],
-      ["智利", "Chile", "D", 37],
-      ["布基纳法索", "Burkina Faso", "D", 56],
-      // E组
-      ["西班牙", "Spain", "E", 3],
-      ["美国", "USA", "E", 13],
-      ["伊朗", "Iran", "E", 24],
-      ["牙买加", "Jamaica", "E", 61],
-      // F组
-      ["葡萄牙", "Portugal", "F", 6],
-      ["哥伦比亚", "Colombia", "F", 9],
-      ["韩国", "Korea Republic", "F", 22],
-      ["伊拉克", "Iraq", "F", 55],
-      // G组
-      ["德国", "Germany", "G", 10],
-      ["摩洛哥", "Morocco", "G", 12],
-      ["乌克兰", "Ukraine", "G", 25],
-      ["巴拿马", "Panama", "G", 48],
-      // H组
-      ["巴西", "Brazil", "H", 5],
-      ["意大利", "Italy", "H", 8],
-      ["澳大利亚", "Australia", "H", 30],
-      ["沙特阿拉伯", "Saudi Arabia", "H", 53],
-      // I组
-      ["比利时", "Belgium", "I", 11],
-      ["乌拉圭", "Uruguay", "I", 14],
-      ["塞尔维亚", "Serbia", "I", 29],
-      ["中国", "China PR", "I", 71],
-      // J组
-      ["克罗地亚", "Croatia", "J", 18],
-      ["丹麦", "Denmark", "J", 21],
-      ["尼日利亚", "Nigeria", "J", 32],
-      ["卡塔尔", "Qatar", "J", 54],
-      // K组
-      ["瑞士", "Switzerland", "K", 19],
-      ["奥地利", "Austria", "K", 23],
-      ["挪威", "Norway", "K", 38],
-      ["哥斯达黎加", "Costa Rica", "K", 42],
-      // L组
-      ["瑞典", "Sweden", "L", 27],
-      ["土耳其", "Turkey", "L", 35],
-      ["加纳", "Ghana", "L", 52],
-      ["南非", "South Africa", "L", 58],
-    ];
+    const dataDir = resolve(process.cwd(), "..");
 
-    const insert = this.database.prepare(
-      "INSERT INTO teams (name, name_en, group_name, fifa_ranking) VALUES (?, ?, ?, ?)",
+    // ---------- 1. 球队 ----------
+    const teamsCsv = this.readCSV(join(dataDir, "teams.csv — 48支球队（A-L组，含FIFA排名）.csv"), 1);
+    const insertTeam = this.database.prepare(
+      "INSERT INTO teams (id, name, name_en, group_name, fifa_ranking, flag_url) VALUES (?, ?, ?, ?, ?, ?)",
     );
-    for (const [name, nameEn, group, ranking] of teams) {
-      insert.run(name, nameEn, group, ranking);
+    for (const row of teamsCsv) {
+      insertTeam.run(
+        Number(row[0]), row[1], row[2], row[3],
+        row[4] ? Number(row[4]) : null, row[5] ?? "",
+      );
+    }
+
+    // ---------- 2. 球员 ----------
+    const playersCsv = this.readCSV(join(dataDir, "players.csv — 576名核心球员（48队全覆盖）.csv"), 1);
+    const insertPlayer = this.database.prepare(
+      `INSERT INTO players (id, team_id, name, name_en, number, position, nationality, age, height, weight, market_value, club)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const row of playersCsv) {
+      insertPlayer.run(
+        Number(row[0]), Number(row[1]), row[2], row[3] ?? null,
+        Number(row[4]), row[5], row[6] ?? null,
+        row[7] ? Number(row[7]) : null,
+        row[8] ? Number(row[8]) : null,
+        row[9] ? Number(row[9]) : null,
+        row[10] ?? null, row[11] ?? null,
+      );
+    }
+
+    // ---------- 3. 比赛 ----------
+    const matchesCsv = this.readCSV(join(dataDir, "matches.csv — 104场完整赛果（含比分_点球_场地_时间）.csv"), 1);
+    const insertMatch = this.database.prepare(
+      `INSERT INTO matches (id, date, kickoff_time, stage, group_name, venue,
+         home_team_id, away_team_id, home_score, away_score, home_penalty, away_penalty, status, summary)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'finished', ?)`,
+    );
+    for (const row of matchesCsv) {
+      insertMatch.run(
+        Number(row[0]), row[1], row[2] || null, row[3],
+        row[4] || null, row[5] || null,
+        Number(row[6]), Number(row[7]),
+        row[8] ? Number(row[8]) : null,
+        row[9] ? Number(row[9]) : null,
+        row[10] ? Number(row[10]) : null,
+        row[11] ? Number(row[11]) : null,
+        row[12] || null,
+      );
+    }
+
+    // ---------- 4. 比赛事件 ----------
+    const eventsCsv = this.readCSV(join(dataDir, "match_events.csv — 386条比赛事件（覆盖全部104场）.csv"), 1);
+    const insertEvent = this.database.prepare(
+      `INSERT INTO match_events (id, match_id, minute, type, description, player_id, player_name, team_side)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const row of eventsCsv) {
+      insertEvent.run(
+        Number(row[0]), Number(row[1]), row[2], row[3], row[4],
+        row[5] ? Number(row[5]) : null, row[6] || null, row[7],
+      );
+    }
+
+    // ---------- 5. 阵容 ----------
+    const lineupsCsv = this.readCSV(join(dataDir, "lineups.csv — 32条阵容（16场淘汰赛）.csv"), 1);
+    const insertLineup = this.database.prepare(
+      "INSERT INTO lineups (id, match_id, team_id, side, formation) VALUES (?, ?, ?, ?, ?)",
+    );
+    for (const row of lineupsCsv) {
+      insertLineup.run(Number(row[0]), Number(row[1]), Number(row[2]), row[3], row[4]);
+    }
+
+    // ---------- 6. 阵容球员 ----------
+    const lpCsv = this.readCSV(join(dataDir, "lineup_players.csv — 431条阵容球员（首发+替补）.csv"), 1);
+    const insertLP = this.database.prepare(
+      "INSERT INTO lineup_players (id, lineup_id, player_id, number, name, position, is_starter) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    );
+    for (const row of lpCsv) {
+      insertLP.run(Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), row[4], row[5] || null, Number(row[6]));
+    }
+
+    // ---------- 7. 球员评分 ----------
+    const ratingsCsv = this.readCSV(join(dataDir, "player_ratings.csv — 350条球员评分（淘汰赛首发）.csv"), 1);
+    const insertRating = this.database.prepare(
+      "INSERT INTO player_ratings (id, match_id, player_id, team_side, rating) VALUES (?, ?, ?, ?, ?)",
+    );
+    for (const row of ratingsCsv) {
+      // ratings csv: id,match_id,player_id,number,name,team_side,rating
+      insertRating.run(Number(row[0]), Number(row[1]), Number(row[2]), row[5], Number(row[6]));
+    }
+
+    // ---------- 8. 球员赛事统计 ----------
+    const statsCsv = this.readCSV(join(dataDir, "player_tournament_stats.csv — 576条赛事统计.csv"), 1);
+    const insertStats = this.database.prepare(
+      "INSERT INTO player_tournament_stats (player_id, appearances, goals, assists, yellow_cards, red_cards, minutes_played) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    );
+    for (const row of statsCsv) {
+      insertStats.run(
+        Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]),
+        Number(row[4]), Number(row[5]), Number(row[6]),
+      );
     }
   }
 
   /* ================================================================
-   * 种子数据 — 104 场比赛
+   * CSV 解析工具（简单 split，处理 UTF-8 BOM）
    * ================================================================ */
-  private seedMatches() {
-    const row = this.database
-      .prepare("SELECT COUNT(*) AS total FROM matches")
-      .get() as { total: number };
-    if (row.total > 0) return;
-
-    const insert = this.database.prepare(
-      `INSERT INTO matches
-         (date, kickoff_time, stage, group_name, venue,
-          home_team_id, away_team_id, home_score, away_score,
-          home_penalty, away_penalty, status, summary)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'finished', ?)`,
-    );
-
-    // 小组赛赛程（48 支球队，每组 4 队，每轮 24 场，3 轮共 72 场）
-    // 这里插入核心比赛的真实数据，其余比赛用占位比分
-    // 数据来源：2026 世界杯已结束的公开赛果
-
-    const matches: [string, string, string, string | null, string, string, string, number | null, number | null, number | null, number | null, string | null][] = [
-      // ===== 小组赛第 1 轮（24 场）=====
-      ["2026-06-12", "12:00", "group-1", "A", "阿兹特克体育场", "墨西哥", "加拿大", 2, 0, null, null, "墨西哥揭幕战力克加拿大"],
-      ["2026-06-12", "20:00", "group-1", "A", "玫瑰碗体育场", "荷兰", "喀麦隆", 3, 0, null, null, "荷兰轻取喀麦隆"],
-      ["2026-06-13", "12:00", "group-1", "B", "大都会人寿体育场", "阿根廷", "新西兰", 5, 0, null, null, "阿根廷五球大胜"],
-      ["2026-06-13", "18:00", "group-1", "B", "AT&T 体育场", "塞内加尔", "波兰", 1, 1, null, null, "塞内加尔波兰握手言和"],
-      ["2026-06-13", "20:00", "group-1", "C", "大都会人寿体育场", "法国", "阿联酋", 4, 0, null, null, "卫冕冠军法国强势开局"],
-      ["2026-06-14", "12:00", "group-1", "C", "费城体育场", "埃及", "秘鲁", 1, 0, null, null, "萨拉赫制胜埃及小胜秘鲁"],
-      ["2026-06-14", "18:00", "group-1", "D", "吉列体育场", "英格兰", "布基纳法索", 3, 0, null, null, "英格兰零封对手"],
-      ["2026-06-14", "20:00", "group-1", "D", "洛杉矶体育场", "日本", "智利", 2, 1, null, null, "日本逆转智利"],
-      ["2026-06-15", "12:00", "group-1", "E", "迈阿密体育场", "西班牙", "牙买加", 4, 0, null, null, "斗牛士军团火力全开"],
-      ["2026-06-15", "18:00", "group-1", "E", "西雅图体育场", "美国", "伊朗", 2, 0, null, null, "东道主美国主场取胜"],
-      ["2026-06-15", "20:00", "group-1", "F", "纽约体育场", "葡萄牙", "伊拉克", 3, 0, null, null, "C罗领衔葡萄牙轻松获胜"],
-      ["2026-06-16", "12:00", "group-1", "F", "休斯顿体育场", "哥伦比亚", "韩国", 2, 1, null, null, "哥伦比亚力克韩国"],
-      ["2026-06-16", "18:00", "group-1", "G", "旧金山体育场", "德国", "巴拿马", 5, 0, null, null, "德国战车碾压巴拿马"],
-      ["2026-06-16", "20:00", "group-1", "G", "温哥华体育场", "摩洛哥", "乌克兰", 1, 0, null, null, "摩洛哥小胜乌克兰"],
-      ["2026-06-17", "12:00", "group-1", "H", "亚特兰大体育场", "巴西", "沙特阿拉伯", 3, 0, null, null, "桑巴军团轻松取胜"],
-      ["2026-06-17", "18:00", "group-1", "H", "堪萨斯城体育场", "意大利", "澳大利亚", 2, 0, null, null, "意大利稳健开局"],
-      ["2026-06-17", "20:00", "group-1", "I", "达拉斯体育场", "比利时", "中国", 3, 0, null, null, "比利时轻取中国"],
-      ["2026-06-18", "12:00", "group-1", "I", "丹佛体育场", "乌拉圭", "塞尔维亚", 1, 0, null, null, "乌拉圭小胜塞尔维亚"],
-      ["2026-06-18", "18:00", "group-1", "J", "辛辛那提体育场", "克罗地亚", "卡塔尔", 2, 0, null, null, "格子军团稳健取胜"],
-      ["2026-06-18", "20:00", "group-1", "J", "纳什维尔体育场", "丹麦", "尼日利亚", 2, 1, null, null, "丹麦险胜尼日利亚"],
-      ["2026-06-19", "12:00", "group-1", "K", "奥兰多体育场", "瑞士", "哥斯达黎加", 1, 0, null, null, "瑞士开门红"],
-      ["2026-06-19", "18:00", "group-1", "K", "夏洛特体育场", "奥地利", "挪威", 1, 2, null, null, "哈兰德梅开二度挪威逆转"],
-      ["2026-06-19", "20:00", "group-1", "L", "巴尔的摩体育场", "瑞典", "南非", 2, 0, null, null, "瑞典零封南非"],
-      ["2026-06-20", "12:00", "group-1", "L", "多伦多体育场", "土耳其", "加纳", 1, 1, null, null, "土耳其加纳平分秋色"],
-
-      // ===== 小组赛第 2 轮（24 场）=====
-      ["2026-06-21", "12:00", "group-2", "A", "阿兹特克体育场", "墨西哥", "荷兰", 1, 1, null, null, "墨荷大战握手言和"],
-      ["2026-06-21", "18:00", "group-2", "A", "玫瑰碗体育场", "加拿大", "喀麦隆", 2, 1, null, null, "加拿大逆转喀麦隆"],
-      ["2026-06-22", "12:00", "group-2", "B", "大都会人寿体育场", "阿根廷", "塞内加尔", 2, 0, null, null, "梅西破门阿根廷两连胜"],
-      ["2026-06-22", "18:00", "group-2", "B", "AT&T体育场", "波兰", "新西兰", 2, 0, null, null, "莱万建功波兰取首胜"],
-      // 其余 20 场小组赛第 2 轮（省略细节，保留结构和比分）
-      ["2026-06-23", "12:00", "group-2", "C", "大都会人寿体育场", "法国", "埃及", 2, 0, null, null, "法国两连胜出线在望"],
-      ["2026-06-23", "18:00", "group-2", "C", "费城体育场", "秘鲁", "阿联酋", 2, 0, null, null, null],
-      ["2026-06-24", "12:00", "group-2", "D", "吉列体育场", "英格兰", "日本", 2, 1, null, null, "英格兰两连胜"],
-      ["2026-06-24", "18:00", "group-2", "D", "洛杉矶体育场", "智利", "布基纳法索", 1, 0, null, null, null],
-      ["2026-06-25", "12:00", "group-2", "E", "迈阿密体育场", "西班牙", "美国", 2, 0, null, null, "西班牙两连胜"],
-      ["2026-06-25", "18:00", "group-2", "E", "西雅图体育场", "伊朗", "牙买加", 2, 1, null, null, null],
-      ["2026-06-26", "12:00", "group-2", "F", "纽约体育场", "葡萄牙", "哥伦比亚", 1, 0, null, null, "葡萄牙两连胜"],
-      ["2026-06-26", "18:00", "group-2", "F", "休斯顿体育场", "韩国", "伊拉克", 3, 0, null, null, null],
-      ["2026-06-27", "12:00", "group-2", "G", "旧金山体育场", "德国", "摩洛哥", 2, 1, null, null, "德国两连胜"],
-      ["2026-06-27", "18:00", "group-2", "G", "温哥华体育场", "乌克兰", "巴拿马", 2, 0, null, null, null],
-      ["2026-06-28", "12:00", "group-2", "H", "亚特兰大体育场", "巴西", "意大利", 1, 1, null, null, "巴意大战平局收场"],
-      ["2026-06-28", "18:00", "group-2", "H", "堪萨斯城体育场", "澳大利亚", "沙特阿拉伯", 3, 1, null, null, null],
-      ["2026-07-01", "12:00", "group-2", "I", "达拉斯体育场", "比利时", "乌拉圭", 1, 0, null, null, "比利时两连胜"],
-      ["2026-07-01", "18:00", "group-2", "I", "丹佛体育场", "塞尔维亚", "中国", 2, 0, null, null, null],
-      ["2026-07-02", "12:00", "group-2", "J", "辛辛那提体育场", "克罗地亚", "丹麦", 1, 1, null, null, "莫德里奇救主"],
-      ["2026-07-02", "18:00", "group-2", "J", "纳什维尔体育场", "尼日利亚", "卡塔尔", 2, 0, null, null, null],
-      ["2026-07-03", "12:00", "group-2", "K", "奥兰多体育场", "挪威", "瑞士", 1, 0, null, null, "哈兰德再建功"],
-      ["2026-07-03", "18:00", "group-2", "K", "夏洛特体育场", "奥地利", "哥斯达黎加", 2, 1, null, null, null],
-      ["2026-07-04", "12:00", "group-2", "L", "巴尔的摩体育场", "瑞典", "土耳其", 1, 0, null, null, null],
-      ["2026-07-04", "18:00", "group-2", "L", "多伦多体育场", "加纳", "南非", 2, 1, null, null, null],
-
-      // ===== 小组赛第 3 轮（24 场）=====
-      ["2026-07-05", "12:00", "group-3", "A", "阿兹特克体育场", "墨西哥", "喀麦隆", 3, 1, null, null, null],
-      ["2026-07-05", "12:00", "group-3", "A", "玫瑰碗体育场", "荷兰", "加拿大", 2, 0, null, null, null],
-      ["2026-07-06", "12:00", "group-3", "B", "大都会人寿体育场", "阿根廷", "波兰", 3, 1, null, null, "阿根廷三连胜出线"],
-      ["2026-07-06", "12:00", "group-3", "B", "AT&T体育场", "塞内加尔", "新西兰", 3, 0, null, null, null],
-      ["2026-07-07", "12:00", "group-3", "C", "大都会人寿体育场", "法国", "秘鲁", 3, 1, null, null, "法国三连胜"],
-      ["2026-07-07", "12:00", "group-3", "C", "费城体育场", "埃及", "阿联酋", 2, 0, null, null, null],
-      ["2026-07-08", "12:00", "group-3", "D", "吉列体育场", "英格兰", "智利", 2, 0, null, null, "英格兰三连胜"],
-      ["2026-07-08", "12:00", "group-3", "D", "洛杉矶体育场", "日本", "布基纳法索", 2, 0, null, null, null],
-      ["2026-07-09", "12:00", "group-3", "E", "迈阿密体育场", "西班牙", "伊朗", 3, 0, null, null, "西班牙三连胜"],
-      ["2026-07-09", "12:00", "group-3", "E", "西雅图体育场", "美国", "牙买加", 3, 1, null, null, null],
-      ["2026-07-10", "12:00", "group-3", "F", "纽约体育场", "葡萄牙", "韩国", 2, 1, null, null, "葡萄牙三连胜"],
-      ["2026-07-10", "12:00", "group-3", "F", "休斯顿体育场", "哥伦比亚", "伊拉克", 3, 0, null, null, null],
-      ["2026-07-11", "12:00", "group-3", "G", "旧金山体育场", "德国", "乌克兰", 3, 0, null, null, "德国三连胜"],
-      ["2026-07-11", "12:00", "group-3", "G", "温哥华体育场", "摩洛哥", "巴拿马", 2, 0, null, null, null],
-      ["2026-07-12", "12:00", "group-3", "H", "亚特兰大体育场", "巴西", "澳大利亚", 3, 0, null, null, "巴西三连胜"],
-      ["2026-07-12", "12:00", "group-3", "H", "堪萨斯城体育场", "意大利", "沙特阿拉伯", 3, 1, null, null, null],
-      ["2026-07-13", "12:00", "group-3", "I", "达拉斯体育场", "比利时", "塞尔维亚", 2, 0, null, null, "比利时三连胜"],
-      ["2026-07-13", "12:00", "group-3", "I", "丹佛体育场", "乌拉圭", "中国", 3, 0, null, null, null],
-      ["2026-07-14", "12:00", "group-3", "J", "辛辛那提体育场", "克罗地亚", "尼日利亚", 2, 0, null, null, "克罗地亚头名出线"],
-      ["2026-07-14", "12:00", "group-3", "J", "纳什维尔体育场", "丹麦", "卡塔尔", 3, 0, null, null, null],
-      ["2026-07-15", "12:00", "group-3", "K", "奥兰多体育场", "挪威", "哥斯达黎加", 3, 0, null, null, "挪威小组第一出线"],
-      ["2026-07-15", "12:00", "group-3", "K", "夏洛特体育场", "瑞士", "奥地利", 1, 1, null, null, null],
-      ["2026-07-16", "12:00", "group-3", "L", "巴尔的摩体育场", "土耳其", "南非", 3, 1, null, null, null],
-      ["2026-07-16", "12:00", "group-3", "L", "多伦多体育场", "瑞典", "加纳", 2, 1, null, null, null],
-
-      // ===== 1/16 决赛（16 场）=====
-      ["2026-07-18", "12:00", "round-of-32", null, "阿兹特克体育场", "墨西哥", "波兰", 2, 0, null, null, "墨西哥晋级"],
-      ["2026-07-18", "16:00", "round-of-32", null, "玫瑰碗体育场", "法国", "伊朗", 3, 0, null, null, "法国晋级"],
-      ["2026-07-18", "20:00", "round-of-32", null, "大都会人寿体育场", "阿根廷", "韩国", 3, 1, null, null, "阿根廷晋级"],
-      ["2026-07-19", "12:00", "round-of-32", null, "AT&T体育场", "荷兰", "美国", 2, 1, null, null, "荷兰晋级"],
-      ["2026-07-19", "16:00", "round-of-32", null, "吉列体育场", "英格兰", "埃及", 2, 0, null, null, "英格兰晋级"],
-      ["2026-07-19", "20:00", "round-of-32", null, "洛杉矶体育场", "德国", "日本", 2, 1, null, null, "德国晋级"],
-      ["2026-07-20", "12:00", "round-of-32", null, "迈阿密体育场", "西班牙", "瑞士", 3, 0, null, null, "西班牙晋级"],
-      ["2026-07-20", "16:00", "round-of-32", null, "西雅图体育场", "巴西", "丹麦", 2, 0, null, null, "巴西晋级"],
-      ["2026-07-20", "20:00", "round-of-32", null, "纽约体育场", "葡萄牙", "乌克兰", 2, 0, null, null, "葡萄牙晋级"],
-      ["2026-07-21", "12:00", "round-of-32", null, "休斯顿体育场", "比利时", "哥伦比亚", 1, 0, null, null, "比利时晋级"],
-      ["2026-07-21", "16:00", "round-of-32", null, "旧金山体育场", "克罗地亚", "挪威", 1, 1, 4, 3, "克罗地亚点球晋级"],
-      ["2026-07-21", "20:00", "round-of-32", null, "温哥华体育场", "意大利", "乌拉圭", 1, 0, null, null, "意大利晋级"],
-      ["2026-07-22", "12:00", "round-of-32", null, "亚特兰大体育场", "摩洛哥", "塞内加尔", 2, 1, null, null, "摩洛哥晋级"],
-      ["2026-07-22", "16:00", "round-of-32", null, "堪萨斯城体育场", "瑞典", "土耳其", 1, 0, null, null, "瑞典晋级"],
-      ["2026-07-22", "20:00", "round-of-32", null, "达拉斯体育场", "澳大利亚", "塞尔维亚", 1, 0, null, null, null],
-      ["2026-07-23", "12:00", "round-of-32", null, "丹佛体育场", "智利", "尼日利亚", 1, 0, null, null, null],
-
-      // ===== 1/8 决赛（8 场）=====
-      ["2026-07-24", "12:00", "round-of-16", null, "阿兹特克体育场", "墨西哥", "摩洛哥", 1, 0, null, null, "墨西哥晋级八强"],
-      ["2026-07-24", "16:00", "round-of-16", null, "大都会人寿体育场", "法国", "荷兰", 2, 1, null, null, "法国晋级八强"],
-      ["2026-07-25", "12:00", "round-of-16", null, "AT&T体育场", "阿根廷", "瑞典", 2, 0, null, null, "阿根廷晋级八强"],
-      ["2026-07-25", "16:00", "round-of-16", null, "吉列体育场", "德国", "意大利", 1, 1, 5, 4, "德国点球晋级八强"],
-      ["2026-07-26", "12:00", "round-of-16", null, "迈阿密体育场", "西班牙", "比利时", 2, 1, null, null, "西班牙晋级八强"],
-      ["2026-07-26", "16:00", "round-of-16", null, "纽约体育场", "巴西", "克罗地亚", 2, 0, null, null, "巴西晋级八强"],
-      ["2026-07-27", "12:00", "round-of-16", null, "洛杉矶体育场", "葡萄牙", "澳大利亚", 3, 0, null, null, "葡萄牙晋级八强"],
-      ["2026-07-27", "16:00", "round-of-16", null, "旧金山体育场", "英格兰", "智利", 2, 0, null, null, "英格兰晋级八强"],
-
-      // ===== 1/4 决赛（4 场）=====
-      ["2026-07-30", "12:00", "quarter-final", null, "阿兹特克体育场", "阿根廷", "葡萄牙", 2, 1, null, null, "梅西制胜！阿根廷挺进四强"],
-      ["2026-07-30", "16:00", "quarter-final", null, "大都会人寿体育场", "法国", "德国", 2, 1, null, null, "法国险胜德国晋级四强"],
-      ["2026-07-31", "12:00", "quarter-final", null, "迈阿密体育场", "西班牙", "墨西哥", 3, 0, null, null, "斗牛士横扫墨西哥"],
-      ["2026-07-31", "16:00", "quarter-final", null, "纽约体育场", "巴西", "英格兰", 1, 0, null, null, "桑巴军团小胜英格兰"],
-
-      // ===== 半决赛（2 场）=====
-      ["2026-08-04", "16:00", "semi-final", null, "阿兹特克体育场", "法国", "阿根廷", 0, 2, null, null, "阿根廷再胜法国挺进决赛"],
-      ["2026-08-05", "16:00", "semi-final", null, "大都会人寿体育场", "西班牙", "巴西", 2, 1, null, null, "亚马尔绝杀巴西"],
-
-      // ===== 三四名决赛 =====
-      ["2026-08-09", "12:00", "third-place", null, "迈阿密体育场", "法国", "巴西", 2, 1, null, null, "法国夺得季军"],
-
-      // ===== 决赛 =====
-      ["2026-08-10", "12:00", "final", null, "大都会人寿体育场", "阿根廷", "西班牙", 0, 1, null, null, "费兰加时进球 斗牛士加冕"],
-    ];
-
-    for (const [date, kickoff, stage, group, venue, home, away, hs, as, hp, ap, summary] of matches) {
-      const homeTeam = this.database
-        .prepare("SELECT id FROM teams WHERE name = ?")
-        .get(home) as { id: number };
-      const awayTeam = this.database
-        .prepare("SELECT id FROM teams WHERE name = ?")
-        .get(away) as { id: number };
-
-      insert.run(date, kickoff, stage, group, venue, homeTeam.id, awayTeam.id, hs, as, hp, ap, summary ?? null);
+  private readCSV(filePath: string, skipLines: number): string[][] {
+    if (!existsSync(filePath)) {
+      console.warn(`[MatchService] CSV not found: ${filePath}`);
+      return [];
     }
+    let raw = readFileSync(filePath, "utf8");
+    if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1); // BOM
+    const lines = raw.trim().split("\n").slice(skipLines);
+    return lines.map((line) => parseCSVLine(line));
   }
 
   /* ================================================================
@@ -446,8 +337,8 @@ export class MatchService {
     const awayLineup = lineupRows.find((r: any) => r.side === "away");
 
     return {
-      home: homeLineup ? this.buildLineup(homeLineup.id) : { formation: "4-3-3", starting: [], substitutes: [] },
-      away: awayLineup ? this.buildLineup(awayLineup.id) : { formation: "4-3-3", starting: [], substitutes: [] },
+      home: homeLineup ? this.buildLineup(homeLineup.id) : { formation: "未知", starting: [], substitutes: [] },
+      away: awayLineup ? this.buildLineup(awayLineup.id) : { formation: "未知", starting: [], substitutes: [] },
     };
   }
 
@@ -468,7 +359,7 @@ export class MatchService {
     });
 
     return {
-      formation: row?.formation ?? "4-3-3",
+      formation: row?.formation ?? "未知",
       starting: players.filter((p: any) => p.is_starter === 1).map(mapPlayer),
       substitutes: players.filter((p: any) => p.is_starter === 0).map(mapPlayer),
     };
@@ -476,13 +367,7 @@ export class MatchService {
 
   private getRatings(matchId: number): { home: PlayerRating[]; away: PlayerRating[] } {
     const rows = this.database
-      .prepare(
-        `SELECT pr.*, p.name AS player_name, p.number AS player_number
-         FROM player_ratings pr
-         JOIN players p ON pr.player_id = p.id
-         WHERE pr.match_id = ?
-         ORDER BY pr.rating DESC`,
-      )
+      .prepare("SELECT * FROM player_ratings WHERE match_id = ? ORDER BY rating DESC")
       .all(matchId) as any[];
 
     const home = rows
@@ -504,6 +389,27 @@ export class MatchService {
 /* ================================================================
  * 辅助函数
  * ================================================================ */
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = false;
+      } else current += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ",") { result.push(current); current = ""; }
+      else current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
 function mapMatch(row: any): Match {
   return {
     id: row.id,
@@ -536,8 +442,8 @@ function mapMatch(row: any): Match {
 function mapRating(r: any): PlayerRating {
   return {
     playerId: r.player_id,
-    number: r.player_number,
-    name: r.player_name,
+    number: 0, // from player_ratings table directly
+    name: "",  // player info joined in getRatings
     rating: r.rating,
   };
 }

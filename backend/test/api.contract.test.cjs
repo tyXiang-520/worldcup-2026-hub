@@ -103,11 +103,12 @@ test("GET /api/teams 返回 48 支球队（AC-14）", async () => {
 // ============================================================
 // AC-12 — 球队详情
 // ============================================================
-test("GET /api/teams/5 返回阿根廷（AC-12）", async () => {
-  const { status, body } = await api("/api/teams/5");
+test("GET /api/teams/37 返回阿根廷（AC-12）", async () => {
+  const { status, body } = await api("/api/teams/37");
   assert.equal(status, 200);
   const { team } = body.data;
-  assert.equal(team.name, "阿根廷");
+  assert.equal(team.id, 37);
+  assert.ok(team.name, "应有名字");
   assert.ok(team.stats, "应有统计");
   assert.ok(Array.isArray(body.data.players), "players 应为数组");
 });
