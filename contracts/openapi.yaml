@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 世界杯赛事信息与互动预测平台 API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     2026 美加墨世界杯全栈 Web 应用后端接口契约。
     赛事展示、球队球员查询接口无需登录。
@@ -18,6 +18,8 @@ tags:
     description: 001-match-display 赛程、比赛详情、球队、球员查询接口
   - name: 数据统计
     description: 003-stats-bracket 晋级图、射手榜、助攻榜、积分榜接口
+  - name: 预测竞猜
+    description: 005-prediction-replay 预测提交与历史查询接口
   - name: 用户认证
     description: 004-user-auth 注册、登录、个人信息接口
 security:
@@ -393,6 +395,68 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  # ============================================================
+  # 005-prediction-replay：预测提交与历史查询
+  # ============================================================
+  /api/predictions:
+    get:
+      operationId: listPredictions
+      summary: 获取当前用户预测历史
+      tags: [预测竞猜]
+      x-spec:
+        file: specs/005-prediction-replay.md
+        acceptanceCriteria: [AC-05, AC-06, AC-07, AC-08]
+      parameters:
+        - name: matchId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: 按比赛筛选，不传返回全部
+      responses:
+        "200":
+          description: 预测列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createPrediction
+      summary: 提交预测（复盘模式）
+      tags: [预测竞猜]
+      x-spec:
+        file: specs/005-prediction-replay.md
+        acceptanceCriteria: [AC-01, AC-02, AC-03, AC-04]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePredictionInput"
+      responses:
+        "201":
+          description: 预测成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResultResponse"
+        "400":
+          description: 输入不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: 该场比赛已预测过
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /api/auth/me:
     get:
       operationId: getProfile
@@ -474,6 +538,12 @@ components:
             $ref: "#/components/schemas/ApiError"
     InternalError:
       description: 服务端错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 未认证或令牌无效
       content:
         application/json:
           schema:
@@ -717,6 +787,85 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StandingGroup"
+
+    # ============================================================
+    # 预测竞猜
+    # ============================================================
+    CreatePredictionInput:
+      type: object
+      additionalProperties: false
+      required: [matchId, prediction]
+      properties:
+        matchId:
+          type: integer
+          minimum: 1
+          description: 比赛 ID
+        prediction:
+          type: string
+          enum: [home, away, draw]
+          description: 胜平负预测
+        homeScore:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: 预测主队比分（可选）
+        awayScore:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: 预测客队比分（可选）
+
+    PredictionResult:
+      type: object
+      required: [id, matchId, prediction, points, homeTeamName, awayTeamName, homeScore, awayScore, createdAt]
+      properties:
+        id:
+          type: integer
+        matchId:
+          type: integer
+        prediction:
+          type: string
+        predictedHomeScore:
+          type: integer
+          nullable: true
+        predictedAwayScore:
+          type: integer
+          nullable: true
+        points:
+          type: integer
+        homeTeamName:
+          type: string
+        awayTeamName:
+          type: string
+        homeScore:
+          type: integer
+        awayScore:
+          type: integer
+        correctResult:
+          type: boolean
+          description: 胜负预测是否正确
+        correctScore:
+          type: boolean
+          description: 比分预测是否完全正确
+        createdAt:
+          type: string
+          format: date-time
+
+    PredictionResultResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/PredictionResult"
+
+    PredictionListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PredictionResult"
 
     UpdatePrivacyInput:
       type: object

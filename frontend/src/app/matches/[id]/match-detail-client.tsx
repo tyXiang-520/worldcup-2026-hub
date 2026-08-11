@@ -7,6 +7,7 @@ import type { MatchDetail, LineupPlayer } from "@/lib/types";
 import { STAGE_LABELS } from "@/lib/types";
 import { fetchMatchDetail } from "@/lib/api";
 import { EventTimeline } from "@/components/event-timeline";
+import { PredictionForm } from "@/components/prediction-form";
 
 type Props = {
   matchId: number;
@@ -132,6 +133,17 @@ export function MatchDetailClient({ initialData, initialError }: Props) {
       {activeTab === "lineup" && <LineupTab lineups={lineups} />}
       {activeTab === "ratings" && <RatingsTab ratings={ratings} />}
       {activeTab === "discussion" && <DiscussionTab />}
+
+      {/* 预测入口 */}
+      <div className="mt-8">
+        <PredictionForm
+          matchId={match.id}
+          homeTeamName={match.homeTeam.name}
+          awayTeamName={match.awayTeam.name}
+          homeScore={match.homeScore}
+          awayScore={match.awayScore}
+        />
+      </div>
     </div>
   );
 }
