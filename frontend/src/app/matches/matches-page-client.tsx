@@ -5,6 +5,7 @@ import type { MatchGroup } from "@/lib/types";
 import { fetchMatches } from "@/lib/api";
 import { MatchCard } from "@/components/match-card";
 import { StageFilter } from "@/components/stage-filter";
+import { StatsTabs } from "@/components/stats-tabs";
 
 export function MatchesPageClient({
   initialData,
@@ -67,112 +68,15 @@ export function MatchesPageClient({
         </p>
       </div>
 
-      {/* 筛选器 */}
-      <div className="mb-10">
-        <StageFilter selected={stage} onChange={handleStageChange} />
-      </div>
-
-      {/* 四态 */}
-      {loading ? (
-        <LoadingSkeleton />
-      ) : error ? (
-        <ErrorState message={error} onRetry={() => setStage(stage)} />
-      ) : data && data.length === 0 ? (
-        <EmptyState />
-      ) : data ? (
-        <div className="space-y-12">
-          {data.map((group) => (
-            <section key={group.date} aria-labelledby={`date-${group.date}`}>
-              <h2
-                id={`date-${group.date}`}
-                className="mb-5 flex items-center gap-3 text-lg font-bold text-slate-800"
-              >
-                <span className="block h-1 w-6 rounded-full bg-blue-600" />
-                {formatDate(group.date)}
-                <span className="ml-auto text-sm font-normal text-slate-400">
-                  {group.matches.length} 场
-                </span>
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {group.matches.map((match) => (
-                  <MatchCard key={match.id} match={match} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      ) : null}
+      {/* 5 个 Tab：赛程 + 晋级图 + 射手榜 + 助攻榜 + 积分榜 */}
+      <StatsTabs
+        matchData={data}
+        matchLoading={loading}
+        matchError={error}
+        stage={stage}
+        onStageChange={handleStageChange}
+        onRetry={() => loadData(stage)}
+      />
     </div>
   );
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-10">
-      {[1, 2, 3].map((i) => (
-        <div key={i}>
-          <div className="mb-5 h-6 w-44 animate-pulse rounded bg-slate-200" />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2].map((j) => (
-              <div
-                key={j}
-                className="h-44 animate-pulse rounded-2xl bg-slate-100"
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <span className="text-5xl">🏟️</span>
-      <h3 className="mt-5 text-lg font-semibold text-slate-700">暂无赛事</h3>
-      <p className="mt-2 text-sm text-slate-400">
-        当前筛选条件下没有匹配的比赛
-      </p>
-    </div>
-  );
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <span className="text-5xl">⚠️</span>
-      <h3 className="mt-5 text-lg font-semibold text-slate-700">加载失败</h3>
-      <p className="mt-2 max-w-md text-sm text-slate-400">{message}</p>
-      <button
-        onClick={onRetry}
-        className="mt-6 rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
-      >
-        重新加载
-      </button>
-    </div>
-  );
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  const weekDays = [
-    "星期日",
-    "星期一",
-    "星期二",
-    "星期三",
-    "星期四",
-    "星期五",
-    "星期六",
-  ];
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const wd = weekDays[d.getDay()];
-  return `${m}月${day}日 ${wd}`;
 }

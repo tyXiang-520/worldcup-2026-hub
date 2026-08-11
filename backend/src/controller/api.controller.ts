@@ -12,6 +12,7 @@ import { CourseService } from "../service/course.service";
 import { MatchService } from "../service/match.service";
 import { TeamService } from "../service/team.service";
 import { PlayerService } from "../service/player.service";
+import { StatsService } from "../service/stats.service";
 import { parseCourseInput } from "../utils/course-input";
 
 @Controller("/api")
@@ -27,6 +28,9 @@ export class ApiController {
 
   @Inject()
   playerService: PlayerService;
+
+  @Inject()
+  statsService: StatsService;
 
   // ============================================================
   // 原有课程接口
@@ -59,15 +63,12 @@ export class ApiController {
   // ============================================================
   // 001-match-display：世界杯赛事数据展示
   // ============================================================
-
-  /** 获取赛程列表，按日期分组 */
   @Get("/matches")
   async listMatches(@Query("stage") stage?: string) {
     const data = this.matchService.list(stage);
     return { data };
   }
 
-  /** 获取单场比赛详情 */
   @Get("/matches/:matchId")
   async getMatchDetail(@Param("matchId") matchId: string) {
     const id = Number(matchId);
@@ -81,14 +82,12 @@ export class ApiController {
     return { data: detail };
   }
 
-  /** 获取球队列表 */
   @Get("/teams")
   async listTeams() {
     const data = this.teamService.list();
     return { data };
   }
 
-  /** 获取球队详情 */
   @Get("/teams/:teamId")
   async getTeamDetail(@Param("teamId") teamId: string) {
     const id = Number(teamId);
@@ -102,7 +101,6 @@ export class ApiController {
     return { data: { team, players: [], matches: [] } };
   }
 
-  /** 获取球员详情 */
   @Get("/players/:playerId")
   async getPlayerDetail(@Param("playerId") playerId: string) {
     const id = Number(playerId);
@@ -114,5 +112,38 @@ export class ApiController {
       throw new httpError.NotFoundError("球员不存在");
     }
     return { data: player };
+  }
+
+  // ============================================================
+  // 003-stats-bracket：晋级图、射手榜、助攻榜、积分榜
+  // ============================================================
+  @Get("/stats/bracket")
+  async getBracket() {
+    const data = this.statsService.getBracket();
+    return { data };
+  }
+
+  @Get("/stats/top-scorers")
+  async getTopScorers(
+    @Query("sortBy") sortBy?: string,
+    @Query("order") order?: string,
+  ) {
+    const data = this.statsService.getTopScorers(sortBy ?? "goals", order ?? "desc");
+    return { data };
+  }
+
+  @Get("/stats/top-assists")
+  async getTopAssists(
+    @Query("sortBy") sortBy?: string,
+    @Query("order") order?: string,
+  ) {
+    const data = this.statsService.getTopAssists(sortBy ?? "assists", order ?? "desc");
+    return { data };
+  }
+
+  @Get("/stats/standings")
+  async getStandings() {
+    const data = this.statsService.getStandings();
+    return { data };
   }
 }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 世界杯赛事信息与互动预测平台 API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     2026 美加墨世界杯全栈 Web 应用后端接口契约。
     赛事展示、球队球员查询接口无需登录。
@@ -16,6 +16,8 @@ tags:
     description: 001-course-catalog 课程目录接口
   - name: 赛事展示
     description: 001-match-display 赛程、比赛详情、球队、球员查询接口
+  - name: 数据统计
+    description: 003-stats-bracket 晋级图、射手榜、助攻榜、积分榜接口
   - name: 用户认证
     description: 004-user-auth 注册、登录、个人信息接口
 security:
@@ -222,6 +224,107 @@ paths:
                 $ref: "#/components/schemas/PlayerDetailResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  # ============================================================
+  # 003-stats-bracket：晋级图、射手榜、助攻榜、积分榜
+  # ============================================================
+  /api/stats/bracket:
+    get:
+      operationId: getBracket
+      summary: 获取淘汰赛晋级树，从 1/16 决赛到决赛
+      tags: [数据统计]
+      security: []
+      x-spec:
+        file: specs/003-stats-bracket.md
+        acceptanceCriteria: [AC-01, AC-02]
+      responses:
+        "200":
+          description: 晋级树数据，按阶段嵌套
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BracketResponse"
+
+  /api/stats/top-scorers:
+    get:
+      operationId: getTopScorers
+      summary: 获取射手榜，默认按进球降序
+      tags: [数据统计]
+      security: []
+      x-spec:
+        file: specs/003-stats-bracket.md
+        acceptanceCriteria: [AC-03, AC-04]
+      parameters:
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [goals, assists, appearances]
+            default: goals
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [desc, asc]
+            default: desc
+      responses:
+        "200":
+          description: 射手榜列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScorerListResponse"
+
+  /api/stats/top-assists:
+    get:
+      operationId: getTopAssists
+      summary: 获取助攻榜，默认按助攻降序
+      tags: [数据统计]
+      security: []
+      x-spec:
+        file: specs/003-stats-bracket.md
+        acceptanceCriteria: [AC-05]
+      parameters:
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [assists, goals, appearances]
+            default: assists
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [desc, asc]
+            default: desc
+      responses:
+        "200":
+          description: 助攻榜列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScorerListResponse"
+
+  /api/stats/standings:
+    get:
+      operationId: getStandings
+      summary: 获取小组赛积分榜，按组分组
+      tags: [数据统计]
+      security: []
+      x-spec:
+        file: specs/003-stats-bracket.md
+        acceptanceCriteria: [AC-06]
+      responses:
+        "200":
+          description: 积分榜，按组分组
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingsResponse"
 
   # ============================================================
   # 004-user-auth：用户注册与登录
@@ -480,6 +583,140 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/UserProfile"
+
+    # ============================================================
+    # 数据统计
+    # ============================================================
+    BracketMatch:
+      type: object
+      required: [id, stage, homeTeam, awayTeam]
+      properties:
+        id:
+          type: integer
+        stage:
+          type: string
+        homeTeam:
+          $ref: "#/components/schemas/TeamBrief"
+        awayTeam:
+          $ref: "#/components/schemas/TeamBrief"
+        homeScore:
+          type: integer
+          nullable: true
+        awayScore:
+          type: integer
+          nullable: true
+        homePenalty:
+          type: integer
+          nullable: true
+        awayPenalty:
+          type: integer
+          nullable: true
+        date:
+          type: string
+
+    BracketResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [rounds, final]
+          properties:
+            rounds:
+              type: array
+              items:
+                type: object
+                required: [title, matches]
+                properties:
+                  title:
+                    type: string
+                    example: "1/8 决赛"
+                  matches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BracketMatch"
+            final:
+              $ref: "#/components/schemas/BracketMatch"
+
+    Scorer:
+      type: object
+      required: [playerId, name, number, teamName, goals, assists, appearances]
+      properties:
+        playerId:
+          type: integer
+        name:
+          type: string
+        number:
+          type: integer
+        teamName:
+          type: string
+        teamId:
+          type: integer
+        goals:
+          type: integer
+        assists:
+          type: integer
+        appearances:
+          type: integer
+        minutesPlayed:
+          type: integer
+
+    ScorerListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scorer"
+
+    StandingRow:
+      type: object
+      required: [rank, teamId, teamName, played, won, drawn, lost, goalsFor, goalsAgainst, goalDifference, points]
+      properties:
+        rank:
+          type: integer
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        played:
+          type: integer
+        won:
+          type: integer
+        drawn:
+          type: integer
+        lost:
+          type: integer
+        goalsFor:
+          type: integer
+        goalsAgainst:
+          type: integer
+        goalDifference:
+          type: integer
+        points:
+          type: integer
+
+    StandingGroup:
+      type: object
+      required: [group, teams]
+      properties:
+        group:
+          type: string
+          example: "A"
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/StandingRow"
+
+    StandingsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StandingGroup"
 
     UpdatePrivacyInput:
       type: object
